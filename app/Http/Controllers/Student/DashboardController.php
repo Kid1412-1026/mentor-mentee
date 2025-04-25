@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Student;
 use App\Http\Controllers\Controller;
 use App\Models\Student;
 use App\Models\Announcement;
+use App\Models\Counseling;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
@@ -33,18 +34,28 @@ class DashboardController extends Controller
                         ->take(5);
                 }
             ])
+            ->select(['id', 'user_id', 'img', 'name', 'matric_no', 'admin_id'])
             ->first();
 
         // Get latest announcements
         $announcements = Announcement::latest()->take(10)->get();
 
-        if (!$student) {
+        if (!$student || !$student->admin_id) {
             return view('pages.student.dashboard', [
-                'student' => null,
+                'student' => $student,
                 'statistics' => null,
-                'announcements' => $announcements
+                'announcements' => $announcements,
+                'nextSession' => null,
+                'accountLocked' => true
             ]);
         }
+
+        // Get the next upcoming counseling session
+        $nextSession = Counseling::where('student_id', $student->id)
+            ->where('status', '!=', 'cancelled')
+            ->where('start_time', '>', now())
+            ->orderBy('start_time')
+            ->first();
 
         // Calculate statistics for the dashboard
         $statistics = [
@@ -55,14 +66,20 @@ class DashboardController extends Controller
             'average_pointer' => $student->enrolments()->avg('pointer') ?? 0,
         ];
 
-        // For debugging
-        \Log::info('Student Dashboard Data:', [
-            'student_id' => $student->id,
-            'statistics' => $statistics
+        return view('pages.student.dashboard', [
+            'student' => $student,
+            'statistics' => $statistics,
+            'announcements' => $announcements,
+            'nextSession' => $nextSession,
+            'accountLocked' => false
         ]);
-
-        return view('pages.student.dashboard', compact('student', 'statistics', 'announcements'));
     }
 }
+
+
+
+
+
+
 
 

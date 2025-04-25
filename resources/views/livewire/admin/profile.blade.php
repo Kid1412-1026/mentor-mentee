@@ -2,7 +2,7 @@
     @include('partials.settings-heading')
 
     <x-settings.layout :heading="__('Profile')" :subheading="__('Update your personal information')">
-        <form wire:submit="updateProfile" class="my-6 w-full space-y-6">
+        <form wire:submit="updateProfile" class="mt-6 space-y-6">
             <flux:input wire:model="name" :label="__('Name')" type="text" maxlength="100" />
 
             <flux:input wire:model="email" :label="__('Email')" type="email" maxlength="100" readonly />
@@ -50,4 +50,6 @@
         <livewire:settings.delete-user-form />
     </x-settings.layout>
 </section>
+
+
 

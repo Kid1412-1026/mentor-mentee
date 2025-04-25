@@ -26,8 +26,15 @@ class Admin extends Model
     /**
      * Get the user that owns the admin.
      */
-    public function user(): BelongsTo
+    public function user()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(\App\Models\User::class, 'user_id');
+    }
+
+    public function students(): HasMany
+    {
+        return $this->hasMany(Student::class);
     }
 }
+
+

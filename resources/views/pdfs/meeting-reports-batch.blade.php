@@ -10,6 +10,18 @@
             margin: 20px;
         }
 
+        .report-header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .report-header img {
+            max-width: 100%;
+            height: 100px;
+            object-fit: contain;
+            margin-bottom: 10px;
+        }
+
         .header {
             text-align: center;
             margin-bottom: 30px;
@@ -85,8 +97,12 @@
 </head>
 <body>
     @foreach($meetings as $meeting)
+        <div class="report-header">
+            <img src="{{ public_path('images/report-header.png') }}" alt="Header Logo">
+        </div>
+
         <div class="header">
-            <h1>Meeting Report</h1>
+            <h1 style="text-decoration: underline;">FKI MENTOR MENTEE MEETING REPORT</h1>
             <p>Generated on {{ now()->format('d/m/Y H:i:s') }}</p>
         </div>
 
@@ -181,4 +197,6 @@
     @endforeach
 </body>
 </html>
+
+
 

@@ -2,21 +2,16 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <div class="flex h-full w-full flex-1 flex-col gap-4 rounded-xl"
          x-data="{
+            isAddingChallenge: false,
             filterSemYear: '',
             filterType: '',
-            isAddingChallenge: false,
+            sortColumn: null,
+            sortDirection: 'asc',
             filterRows() {
                 const rows = document.querySelectorAll('tbody tr');
 
-                // If no rows or only empty state row exists, don't filter
-                if (!rows.length || (rows.length === 1 && rows[0].classList.contains('empty-row'))) {
-                    return;
-                }
-
-                let visibleCount = 0;
-
                 rows.forEach(row => {
-                    // Skip the empty state row
+                    // Skip the 'No challenges found' row
                     if (row.classList.contains('empty-row')) {
                         return;
                     }
@@ -24,7 +19,6 @@
                     // Default to showing the row if no filters are active
                     if (!this.filterSemYear && !this.filterType) {
                         row.style.display = '';
-                        visibleCount++;
                         return;
                     }
 
@@ -36,9 +30,14 @@
                     // Filter by semester/year
                     if (this.filterSemYear) {
                         const [filterSem, filterYear] = this.filterSemYear.split('/');
-                        const [rowSem, rowYear] = semYearCell.split('/');
+                        const match = semYearCell.match(/Semester (\d+) \/ Year (\d+)/);
 
-                        if (rowSem !== filterSem || rowYear !== filterYear) {
+                        if (match) {
+                            const [, rowSem, rowYear] = match;
+                            if (rowSem !== filterSem || rowYear !== filterYear) {
+                                showRow = false;
+                            }
+                        } else {
                             showRow = false;
                         }
                     }
@@ -48,15 +47,60 @@
                         showRow = false;
                     }
 
+                    // Show or hide the row
                     row.style.display = showRow ? '' : 'none';
-                    if (showRow) visibleCount++;
+                });
+            },
+            sort(column) {
+                if (this.sortColumn === column) {
+                    this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
+                } else {
+                    this.sortColumn = column;
+                    this.sortDirection = 'asc';
+                }
+
+                const tbody = document.querySelector('tbody');
+                const rows = Array.from(tbody.querySelectorAll('tr:not(.empty-row)'));
+
+                rows.sort((a, b) => {
+                    let aValue, bValue;
+
+                    switch(column) {
+                        case 'name':
+                            aValue = a.cells[0].textContent.trim();
+                            bValue = b.cells[0].textContent.trim();
+                            break;
+                        case 'type':
+                            aValue = a.cells[1].textContent.trim();
+                            bValue = b.cells[1].textContent.trim();
+                            break;
+                        case 'semYear':
+                            // Get semester and year values directly from the cell
+                            const [aSem, aYear] = a.cells[2].textContent.trim().split('/');
+                            const [bSem, bYear] = b.cells[2].textContent.trim().split('/');
+                            // Convert to comparable numbers
+                            aValue = (parseInt(aYear) * 2) + parseInt(aSem);
+                            bValue = (parseInt(bYear) * 2) + parseInt(bSem);
+                            break;
+                        case 'remark':
+                            aValue = a.cells[3].textContent.trim();
+                            bValue = b.cells[3].textContent.trim();
+                            break;
+                    }
+
+                    // Handle null/undefined values
+                    if (aValue === null || aValue === undefined) aValue = '';
+                    if (bValue === null || bValue === undefined) bValue = '';
+
+                    // Compare values
+                    if (this.sortDirection === 'asc') {
+                        return aValue > bValue ? 1 : aValue < bValue ? -1 : 0;
+                    }
+                    return aValue < bValue ? 1 : aValue > bValue ? -1 : 0;
                 });
 
-                // Handle empty state visibility
-                const emptyRow = document.querySelector('tr.empty-row');
-                if (emptyRow) {
-                    emptyRow.style.display = visibleCount === 0 ? '' : 'none';
-                }
+                // Reorder the rows
+                rows.forEach(row => tbody.appendChild(row));
             }
          }"
          x-init="$nextTick(() => filterRows())">
@@ -102,10 +146,17 @@
         <!-- Table Section -->
         <div class="overflow-x-auto bg-white dark:bg-zinc-900 shadow-md dark:shadow-zinc-800/30 rounded-lg">
             <!-- Add Challenge Button -->
-            <div class="p-6">
+            <div class="p-6" x-data="{
+                isAddingChallenge: false,
+                challenges: [],
+                initializeForm() {
+                    this.isAddingChallenge = true;
+                    this.challenges = [{}];  // Initialize with one empty challenge when opening the form
+                }
+            }">
                 <!-- Toggle Button -->
                 <div class="flex justify-end mb-4">
-                    <button @click="isAddingChallenge = !isAddingChallenge"
+                    <button @click="initializeForm()"
                             class="inline-flex items-center justify-center p-2 bg-indigo-600 dark:bg-indigo-500 text-white rounded-md hover:bg-indigo-700 dark:hover:bg-indigo-600 transition-colors">
                         <x-flux::icon name="plus" class="size-5" />
                         <span class="sr-only">Add Challenge</span>
@@ -121,61 +172,84 @@
                      x-transition:leave-start="opacity-100 transform translate-y-0"
                      x-transition:leave-end="opacity-0 transform -translate-y-2"
                      class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6">
-                    <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Add New Challenge</h3>
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Add New Challenges</h3>
                     <form action="{{ route('student.challenge.store') }}" method="POST">
                         @csrf
-                        <div class="space-y-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Semester/Year</label>
-                                <select name="sem_year" required
-                                        class="w-full px-3 py-2 border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white">
-                                    <option value="1/1">Semester 1 / Year 1</option>
-                                    <option value="2/1">Semester 2 / Year 1</option>
-                                    <option value="1/2">Semester 1 / Year 2</option>
-                                    <option value="2/2">Semester 2 / Year 2</option>
-                                    <option value="1/3">Semester 1 / Year 3</option>
-                                    <option value="2/3">Semester 2 / Year 3</option>
-                                    <option value="1/4">Semester 1 / Year 4</option>
-                                    <option value="2/4">Semester 2 / Year 4</option>
-                                </select>
-                            </div>
+                        <div class="space-y-6">
+                            <template x-for="(challenge, index) in challenges" :key="index">
+                                <div class="space-y-4 p-4 border border-gray-200 dark:border-zinc-700 rounded-lg">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Semester/Year</label>
+                                        <select :name="'challenges[' + index + '][sem_year]'" required
+                                               class="w-full px-3 py-2 border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white">
+                                            <option value="" disabled selected>Select Semester / Year</option>
+                                            <option value="1/1">Semester 1 / Year 1</option>
+                                            <option value="2/1">Semester 2 / Year 1</option>
+                                            <option value="1/2">Semester 1 / Year 2</option>
+                                            <option value="2/2">Semester 2 / Year 2</option>
+                                            <option value="1/3">Semester 1 / Year 3</option>
+                                            <option value="2/3">Semester 2 / Year 3</option>
+                                            <option value="1/4">Semester 1 / Year 4</option>
+                                            <option value="2/4">Semester 2 / Year 4</option>
+                                        </select>
+                                    </div>
 
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Title</label>
-                                <input type="text" name="name" required
-                                       class="w-full px-3 py-2 border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white">
-                            </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Title</label>
+                                        <input type="text" :name="'challenges[' + index + '][name]'" required
+                                               class="w-full px-3 py-2 border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white">
+                                    </div>
 
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Category</label>
-                                <select name="type" required
-                                        class="w-full px-3 py-2 border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white">
-                                    <option value="Time Management">Time Management</option>
-                                    <option value="Financial Constraints">Financial Constraints</option>
-                                    <option value="Academic Pressure">Academic Pressure</option>
-                                    <option value="Mental Health Struggles">Mental Health Struggles</option>
-                                    <option value="Lack of Motivation">Lack of Motivation</option>
-                                    <option value="Balancing Work and Study">Balancing Work and Study</option>
-                                    <option value="Social or Peer Pressure">Social or Peer Pressure</option>
-                                    <option value="Health Issues">Health Issues</option>
-                                </select>
-                            </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Category</label>
+                                        <select :name="'challenges[' + index + '][type]'" required
+                                                class="w-full px-3 py-2 border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white">
+                                            <option value="" disabled selected>Select Category</option>
+                                            <option value="Time Management">Time Management</option>
+                                            <option value="Financial Constraints">Financial Constraints</option>
+                                            <option value="Academic Pressure">Academic Pressure</option>
+                                            <option value="Mental Health Struggles">Mental Health Struggles</option>
+                                            <option value="Lack of Motivation">Lack of Motivation</option>
+                                            <option value="Balancing Work and Study">Balancing Work and Study</option>
+                                            <option value="Social or Peer Pressure">Social or Peer Pressure</option>
+                                            <option value="Health Issues">Health Issues</option>
+                                        </select>
+                                    </div>
 
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Description</label>
-                                <textarea name="remark" required rows="4"
-                                          class="w-full px-3 py-2 border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white"></textarea>
-                            </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Description</label>
+                                        <textarea :name="'challenges[' + index + '][remark]'" required rows="4"
+                                                  class="w-full px-3 py-2 border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white"></textarea>
+                                    </div>
 
-                            <div class="flex justify-end gap-4">
-                                <button type="button" @click="isAddingChallenge = false"
-                                        class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors">
-                                    Cancel
+                                    <!-- Remove Challenge Button -->
+                                    <div x-show="challenges.length > 1" class="flex justify-end">
+                                        <button type="button" @click="challenges.splice(index, 1)"
+                                                class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300">
+                                            <x-flux::icon name="trash" class="size-5" />
+                                            <span class="sr-only">Remove Challenge</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </template>
+
+                            <div class="flex items-center justify-between mt-4">
+                                <button type="button" @click="challenges.push({})"
+                                        class="inline-flex items-center px-4 py-2 text-sm font-medium text-indigo-600 bg-white border border-indigo-600 rounded-md hover:bg-indigo-50">
+                                    <x-flux::icon name="plus" class="size-5 mr-2" />
+                                    Add Another Challenge
                                 </button>
-                                <button type="submit"
-                                        class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors">
-                                    Add Challenge
-                                </button>
+
+                                <div class="flex justify-end gap-3">
+                                    <button type="button" @click="isAddingChallenge = false; challenges = []"
+                                            class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors">
+                                        Cancel
+                                    </button>
+                                    <button type="submit"
+                                            class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors">
+                                        Save Challenges
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </form>
@@ -185,10 +259,42 @@
             <table class="min-w-full table-auto">
                 <thead class="bg-gray-50 dark:bg-zinc-800">
                     <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Title</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Category</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Semester/Year</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Description</th>
+                        <th @click="sort('name')"
+                            class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-zinc-700">
+                            <div class="flex items-center">
+                                Name
+                                <template x-if="sortColumn === 'name'">
+                                    <span x-text="sortDirection === 'asc' ? '↑' : '↓'" class="ml-1"></span>
+                                </template>
+                            </div>
+                        </th>
+                        <th @click="sort('type')"
+                            class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-zinc-700">
+                            <div class="flex items-center">
+                                Type
+                                <template x-if="sortColumn === 'type'">
+                                    <span x-text="sortDirection === 'asc' ? '↑' : '↓'" class="ml-1"></span>
+                                </template>
+                            </div>
+                        </th>
+                        <th @click="sort('semYear')"
+                            class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-zinc-700">
+                            <div class="flex items-center">
+                                Semester/Year
+                                <template x-if="sortColumn === 'semYear'">
+                                    <span x-text="sortDirection === 'asc' ? '↑' : '↓'" class="ml-1"></span>
+                                </template>
+                            </div>
+                        </th>
+                        <th @click="sort('remark')"
+                            class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-zinc-700">
+                            <div class="flex items-center">
+                                Remark
+                                <template x-if="sortColumn === 'remark'">
+                                    <span x-text="sortDirection === 'asc' ? '↑' : '↓'" class="ml-1"></span>
+                                </template>
+                            </div>
+                        </th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
                     </tr>
                 </thead>
@@ -199,7 +305,9 @@
                             data-type="{{ $challenge->type }}">
                             <td class="px-6 py-4 text-gray-900 dark:text-gray-300">{{ $challenge->name }}</td>
                             <td class="px-6 py-4 text-gray-900 dark:text-gray-300">{{ $challenge->type }}</td>
-                            <td class="px-6 py-4 text-gray-900 dark:text-gray-300">Semester {{ $challenge->sem }} / Year {{ $challenge->year }}</td>
+                            <td class="px-6 py-4 text-gray-900 dark:text-gray-300">
+                                {{ $challenge->sem }}/{{ $challenge->year }}
+                            </td>
                             <td class="px-6 py-4 text-gray-900 dark:text-gray-300">{{ Str::limit($challenge->remark, 100) }}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                 <button onclick="editChallenge({{ $challenge->id }})"
@@ -303,6 +411,7 @@
         </div>
     </div>
 
+    <!-- Keep your modal-related JavaScript only -->
     <script>
         function closeModal(modalId) {
             document.getElementById(modalId).classList.add('hidden');
@@ -378,53 +487,6 @@
                 event.target.classList.add('hidden');
             }
         }
-
-        // Add filtering functionality
-        document.addEventListener('DOMContentLoaded', function() {
-            const filterSemYear = document.getElementById('filterSemYear');
-            const filterType = document.getElementById('filterType');
-            const rows = Array.from(document.querySelectorAll('tbody tr'));
-
-            function filterTable() {
-                const selectedSemYear = filterSemYear.value;
-                const selectedType = filterType.value;
-
-                rows.forEach(row => {
-                    // Skip the "No challenges found" row if it exists
-                    if (row.cells.length === 1) return;
-
-                    // Get the semester/year directly from the table cell
-                    const semYearCell = row.cells[2].textContent.trim(); // Assuming semester/year is in the third column
-                    const typeData = row.cells[1].textContent.trim(); // Assuming type is in the second column
-
-                    let showRow = true;
-
-                    // Filter by semester/year
-                    if (selectedSemYear) {
-                        const [filterSem, filterYear] = selectedSemYear.split('/');
-                        const [rowSem, rowYear] = semYearCell.split('/');
-
-                        if (rowSem !== filterSem || rowYear !== filterYear) {
-                            showRow = false;
-                        }
-                    }
-
-                    // Filter by type
-                    if (selectedType && typeData !== selectedType) {
-                        showRow = false;
-                    }
-
-                    row.style.display = showRow ? '' : 'none';
-                });
-            }
-
-            // Add event listeners for automatic filtering
-            if (filterSemYear) filterSemYear.addEventListener('change', filterTable);
-            if (filterType) filterType.addEventListener('change', filterTable);
-
-            // Run the filter immediately when the page loads
-            filterTable();
-        });
     </script>
 
     <!-- Hidden delete form -->
@@ -433,6 +495,17 @@
         @method('DELETE')
     </form>
 </x-layouts.app>
+
+
+
+
+
+
+
+
+
+
+
 
 
 

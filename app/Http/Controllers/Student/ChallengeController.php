@@ -60,26 +60,27 @@ class ChallengeController extends Controller
         }
 
         $request->validate([
-            'sem_year' => 'required|string',
-            'name' => 'required|string|max:255',
-            'type' => 'required|string|max:255',
-            'remark' => 'nullable|string|max:500'
+            'challenges' => 'required|array',
+            'challenges.*.sem_year' => 'required|string',
+            'challenges.*.name' => 'required|string|max:255',
+            'challenges.*.type' => 'required|string|max:255',
+            'challenges.*.remark' => 'nullable|string|max:500'
         ]);
 
-        list($sem, $year) = explode('/', $request->sem_year);
+        foreach ($request->challenges as $challengeData) {
+            list($sem, $year) = explode('/', $challengeData['sem_year']);
 
-        $data = [
-            'student_id' => $student->id,
-            'sem' => $sem,
-            'year' => $year,
-            'name' => $request->name,
-            'type' => $request->type,
-            'remark' => $request->remark
-        ];
+            Challenge::create([
+                'student_id' => $student->id,
+                'sem' => $sem,
+                'year' => $year,
+                'name' => $challengeData['name'],
+                'type' => $challengeData['type'],
+                'remark' => $challengeData['remark']
+            ]);
+        }
 
-        Challenge::create($data);
-
-        return redirect()->route('student.challenge')->with('success', 'Challenge created successfully');
+        return redirect()->route('student.challenge')->with('success', 'Challenges created successfully');
     }
 
     public function update(Request $request, $id)
@@ -121,5 +122,7 @@ class ChallengeController extends Controller
         return response()->json(['success' => true]);
     }
 }
+
+
 
 

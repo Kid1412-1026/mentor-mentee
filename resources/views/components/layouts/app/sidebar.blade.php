@@ -2,6 +2,8 @@
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="dark">
     <head>
         @include('partials.head')
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        @include('components.notifications-script')
     </head>
     <body class="min-h-screen bg-white dark:bg-zinc-800">
         <flux:sidebar sticky stashable class="border-r border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900">
@@ -80,7 +82,7 @@
                     <flux:menu.separator />
 
                     <flux:menu.radio.group>
-                        <flux:menu.item :href="auth()->user()->role === 'admin' ? route('admin.profile') : route('student.profile')" icon="user" wire:navigate>
+                        <flux:menu.item :href="route('settings.profile')" icon="user" wire:navigate>
                             {{ __('My Profile') }}
                         </flux:menu.item>
                     </flux:menu.radio.group>
@@ -150,8 +152,12 @@
         {{ $slot }}
 
         @fluxScripts
+        @stack('scripts')
     </body>
 </html>
+
+
+
 
 
 

@@ -1,9 +1,140 @@
-<x-layouts.app :title="__('Available Courses')">
+<x-layouts.app :title="__('Courses')">
     <div class="flex h-full w-full flex-1 flex-col gap-4 rounded-xl">
-        <!-- Enrolled Courses Section -->
-        <div
-            class="bg-white shadow-[inset_0px_0px_0px_1px_rgba(26,26,0,0.16)] rounded-lg p-6 dark:bg-zinc-900 dark:shadow-zinc-800/30">
-            <h2 class="text-2xl font-bold text-[#1b1b18] dark:text-white mb-4">My Enrolled Courses</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- GPA Summary Section -->
+            <div class="bg-white shadow-[inset_0px_0px_0px_1px_rgba(26,26,0,0.16)] rounded-lg p-6 dark:bg-zinc-900 dark:shadow-zinc-800/30">
+                <h2 class="text-2xl font-bold text-[#1b1b18] dark:text-white mb-4">GPA Summary</h2>
+
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200 dark:divide-zinc-700">
+                        <thead class="bg-gray-50 dark:bg-zinc-800">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Semester/Year</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Credit Hours</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">GPA</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white dark:bg-zinc-900 divide-y divide-gray-200 dark:divide-zinc-700">
+                            @php
+                                $totalQualityPoints = 0;
+                                $totalCreditsWithGrade = 0;
+
+                                $semesterEnrollments = $enrolledCourses
+                                    ->groupBy(function($enrollment) {
+                                        return $enrollment->year . '-' . $enrollment->sem;
+                                    })
+                                    ->sortBy(function($group, $key) {
+                                        list($year, $sem) = explode('-', $key);
+                                        return $year . str_pad($sem, 2, '0', STR_PAD_LEFT);
+                                    });
+                            @endphp
+
+                            @foreach($semesterEnrollments as $key => $semesterGroup)
+                                @php
+                                    list($year, $sem) = explode('-', $key);
+                                    $semesterCredits = $semesterGroup->sum('course.credit_hour');
+                                    $semesterQualityPoints = $semesterGroup->sum(function($enrollment) {
+                                        return $enrollment->course->credit_hour * $enrollment->pointer;
+                                    });
+                                    $semesterGPA = $semesterCredits > 0 ? number_format($semesterQualityPoints / $semesterCredits, 2) : '0.00';
+
+                                    $totalQualityPoints += $semesterQualityPoints;
+                                    $totalCreditsWithGrade += $semesterCredits;
+                                @endphp
+                                <tr class="hover:bg-gray-50 dark:hover:bg-zinc-800/50">
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-300">
+                                        Semester {{ $sem }}/Year {{ $year }}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">
+                                        {{ $semesterCredits }}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">
+                                        {{ $semesterGPA }}
+                                    </td>
+                                </tr>
+                            @endforeach
+                            <tr class="bg-gray-50 dark:bg-zinc-800">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-300">
+                                    Cumulative GPA
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-300">
+                                    {{ $totalCreditsWithGrade }}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-300">
+                                    {{ $totalCreditsWithGrade > 0 ? number_format($totalQualityPoints / $totalCreditsWithGrade, 2) : '0.00' }}
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Credit Hours Summary Section -->
+            <div class="bg-white shadow-[inset_0px_0px_0px_1px_rgba(26,26,0,0.16)] rounded-lg p-6 dark:bg-zinc-900 dark:shadow-zinc-800/30">
+                <h2 class="text-2xl font-bold text-[#1b1b18] dark:text-white mb-4">Credit Hours Summary</h2>
+
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200 dark:divide-zinc-700">
+                        <thead class="bg-gray-50 dark:bg-zinc-800">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Section</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Credit Hours Taken</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white dark:bg-zinc-900 divide-y divide-gray-200 dark:divide-zinc-700">
+                            @php
+                                $sections = [
+                                    'Faculty Core',
+                                    'Programme Core',
+                                    'Elective',
+                                    'University Core',
+                                    'Co-curriculum',
+                                    'Language',
+                                    'Industrial Training'
+                                ];
+                                $totalCredits = 0;
+                            @endphp
+
+                            @foreach($sections as $section)
+                                @php
+                                    $sectionCredits = $enrolledCourses
+                                        ->whereIn('course.section', [$section])
+                                        ->sum('course.credit_hour');
+                                    $totalCredits += $sectionCredits;
+                                @endphp
+                                <tr class="hover:bg-gray-50 dark:hover:bg-zinc-800/50">
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-300">
+                                        {{ $section }}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">
+                                        {{ $sectionCredits }}
+                                    </td>
+                                </tr>
+                            @endforeach
+                            <tr class="bg-gray-50 dark:bg-zinc-800">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-300">
+                                    Total Credit Hours
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-300">
+                                    {{ $totalCredits }}
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Existing Enrolled Courses Section -->
+        <div class="bg-white shadow-[inset_0px_0px_0px_1px_rgba(26,26,0,0.16)] rounded-lg p-6 dark:bg-zinc-900 dark:shadow-zinc-800/30">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold text-[#1b1b18] dark:text-white">My Enrolled Courses</h2>
+                <a href="{{ route('student.courses.export') }}"
+                   class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors">
+                    <x-flux::icon name="document-arrow-down" class="size-5 mr-2" />
+                    Download Progress Report
+                </a>
+            </div>
 
             @if ($enrolledCourses->isEmpty())
                 <div class="flex justify-center items-center min-h-[100px]">
@@ -330,4 +461,15 @@
         }
     </script>
 </x-layouts.app>
+
+
+
+
+
+
+
+
+
+
+
 

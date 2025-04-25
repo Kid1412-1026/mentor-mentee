@@ -58,6 +58,8 @@ Route::middleware(['auth', 'student'])->group(function () {
     Route::delete('student-challenge/{id}', [App\Http\Controllers\Student\ChallengeController::class, 'destroy'])->name('student.challenge.destroy');
 
     Route::get('student-career', [App\Http\Controllers\Student\CareerController::class, 'studcareer'])->name('student.career');
+    Route::get('/student/courses/export', [App\Http\Controllers\Student\CourseController::class, 'exportCourseProgress'])
+        ->name('student.courses.export');
 });
 
 Route::middleware(['auth', 'admin'])->group(function () {
@@ -67,7 +69,8 @@ Route::middleware(['auth', 'admin'])->group(function () {
 
     // Student Management Routes
     Route::get('admin/student/{student}', [App\Http\Controllers\Admin\DashboardController::class, 'show'])->name('admin.student.show');
-    Route::get('admin/student/{student}/export', [App\Http\Controllers\Admin\DashboardController::class, 'export'])->name('admin.student.export');
+    Route::get('/admin/student/{id}/export', [App\Http\Controllers\Admin\ReportController::class, 'export'])->name('admin.student.export');
+    Route::get('/admin/student/export-batch', [App\Http\Controllers\Admin\ReportController::class, 'exportBatch'])->name('admin.student.export-batch');
 
     // News Management Routes
     Route::get('admin-news', [App\Http\Controllers\Admin\NewsController::class, 'index'])->name('admin.news');
@@ -117,9 +120,20 @@ Route::middleware(['auth', 'admin'])->group(function () {
         ->name('admin.meeting.export');
     Route::get('admin/meeting/export-batch', [App\Http\Controllers\Admin\MeetingReportController::class, 'exportBatch'])
         ->name('admin.meeting.export-batch');
+    Route::get('admin/course-structure/export-batch', [App\Http\Controllers\Admin\BuildStructController::class, 'exportBatch'])
+        ->name('admin.course-structure.export-batch');
 });
 
 require __DIR__.'/auth.php';
+
+
+
+
+
+
+
+
+
 
 
 

@@ -9,6 +9,7 @@ use App\Models\Rule;
 use App\Models\Programme;
 use App\Models\Enrolment;
 use Illuminate\Support\Facades\DB;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class CourseController extends Controller
 {
@@ -160,7 +161,42 @@ class CourseController extends Controller
                 ->with('error', 'Failed to update enrollment. Please try again.');
         }
     }
+
+    public function exportCourseProgress()
+    {
+        $student = auth()->user()->student;
+
+        // Get enrolled courses with their details
+        $enrolledCourses = $student->enrolments()
+            ->with(['course'])
+            ->orderBy('year')
+            ->orderBy('sem')
+            ->get();
+
+        // Get all required courses for the student's intake
+        $allCourses = Rule::where('intake', $student->intake)
+            ->with(['course'])
+            ->get();
+
+        // Get IDs of enrolled courses
+        $enrolledCourseIds = $enrolledCourses->pluck('course_id')->toArray();
+
+        $pdf = Pdf::loadView('pdfs.course-progress', [
+            'student' => $student,
+            'enrolledCourses' => $enrolledCourses,
+            'remainingCourses' => $allCourses->filter(function($rule) use ($enrolledCourseIds) {
+                return !in_array($rule->course->id, $enrolledCourseIds);
+            }),
+            'allCourses' => $allCourses,
+            'totalCredits' => $allCourses->sum('course.credit_hour'),
+            'completedCredits' => $enrolledCourses->sum('course.credit_hour')
+        ]);
+
+        return $pdf->stream('course-progress-report.pdf');
+    }
 }
+
+
 
 
 

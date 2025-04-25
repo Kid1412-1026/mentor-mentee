@@ -1,3 +1,4 @@
+
 <div class="flex flex-col gap-6">
     <x-auth-header :title="__('Create an account')" :description="__('Enter your details below to create your account')" />
 
@@ -5,6 +6,17 @@
     <x-auth-session-status class="text-center" :status="session('status')" />
 
     <form wire:submit="register" class="flex flex-col gap-6">
+        <!-- Role Selection -->
+        <flux:select
+            wire:model.live="role"
+            :label="__('Register as')"
+            required
+        >
+            <option value="">Select role</option>
+            <option value="student">Student</option>
+            <option value="admin">Admin</option>
+        </flux:select>
+
         <!-- Name -->
         <flux:input
             wire:model="name"
@@ -25,6 +37,58 @@
             autocomplete="email"
             placeholder="email@example.com"
         />
+
+        <!-- Student-specific fields -->
+        @if($role === 'student')
+            <flux:input
+                wire:model="matric_no"
+                :label="__('Matric Number')"
+                type="text"
+                required
+                maxlength="15"
+                :placeholder="__('Enter matric number')"
+            />
+
+            <flux:select
+                wire:model="programme_id"
+                :label="__('Programme')"
+                required
+            >
+                <option value="">Select programme</option>
+                @foreach($programmes as $programme)
+                    <option value="{{ $programme->id }}">{{ $programme->code }} - {{ $programme->name }}</option>
+                @endforeach
+            </flux:select>
+
+            <flux:input
+                wire:model="intake"
+                :label="__('Intake')"
+                type="number"
+                required
+                :placeholder="__('Enter intake year')"
+            />
+        @endif
+
+        <!-- Admin-specific fields -->
+        @if($role === 'admin')
+            <flux:input
+                wire:model="faculty"
+                :label="__('Faculty')"
+                type="text"
+                required
+                maxlength="255"
+                :placeholder="__('Enter faculty name')"
+            />
+
+            <flux:input
+                wire:model="pose"
+                :label="__('Position')"
+                type="text"
+                required
+                maxlength="100"
+                :placeholder="__('Enter position')"
+            />
+        @endif
 
         <!-- Password -->
         <flux:input
@@ -58,3 +122,6 @@
         <flux:link :href="route('login')" wire:navigate>{{ __('Log in') }}</flux:link>
     </div>
 </div>
+
+
+

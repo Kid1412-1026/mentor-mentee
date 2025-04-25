@@ -19,7 +19,7 @@ class MentorController extends Controller
     public function events()
     {
         try {
-            $counselings = Counseling::where('student_id', Auth::id())
+            $counselings = Counseling::where('student_id', Auth::user()->student->id)
                 ->get()
                 ->map(function ($counseling) {
                     return [
@@ -120,7 +120,7 @@ class MentorController extends Controller
 
             // Create the counseling session with explicit data
             $counselingData = [
-                'student_id' => Auth::id(),
+                'student_id' => Auth::user()->student->id,
                 'admin_id' => $student->admin_id,
                 'start_time' => $validated['start_time'],
                 'end_time' => $validated['end_time'],
@@ -164,6 +164,8 @@ class MentorController extends Controller
         };
     }
 }
+
+
 
 
 

@@ -16,6 +16,9 @@ class ReportController extends Controller
 {
     public function index()
     {
+        // Get the authenticated admin's ID
+        $adminId = auth()->id();
+
         $students = Student::with([
             'activities' => function($query) {
                 $query->select('id', 'student_id', 'sem', 'year', 'name', 'type', 'remark', 'uploads');
@@ -40,6 +43,7 @@ class ReportController extends Controller
                 $query->select('id', 'name', 'email', 'role');
             }
         ])
+        ->where('admin_id', $adminId) // Add this line to filter by mentor
         ->select([
             'students.id',
             'students.matric_no',
@@ -83,19 +87,26 @@ class ReportController extends Controller
         ->paginate(25)
         ->withQueryString();
 
-        // Get unique faculties and intakes for filters
-        $faculties = Student::distinct()->pluck('faculty');
-        $intakes = Student::distinct()->pluck('intake');
+        // Get unique faculties and intakes for filters (only for this mentor's students)
+        $faculties = Student::where('admin_id', $adminId)->distinct()->pluck('faculty');
+        $intakes = Student::where('admin_id', $adminId)->distinct()->pluck('intake');
 
-        // Calculate some statistics
+        // Calculate statistics only for this mentor's students
         $statistics = [
-            'total_students' => Student::count(),
-            'active_students' => Student::whereHas('user', function($query) {
-                $query->where('role', 'student');
+            'total_students' => Student::where('admin_id', $adminId)->count(),
+            'active_students' => Student::where('admin_id', $adminId)
+                ->whereHas('user', function($query) {
+                    $query->where('role', 'student');
+                })->count(),
+            'avg_cgpa' => KpiIndex::whereHas('student', function($query) use ($adminId) {
+                $query->where('admin_id', $adminId);
+            })->avg('cgpa'),
+            'total_activities' => Activity::whereHas('student', function($query) use ($adminId) {
+                $query->where('admin_id', $adminId);
             })->count(),
-            'avg_cgpa' => KpiIndex::avg('cgpa'),
-            'total_activities' => Activity::count(),
-            'total_challenges' => Challenge::count()
+            'total_challenges' => Challenge::whereHas('student', function($query) use ($adminId) {
+                $query->where('admin_id', $adminId);
+            })->count()
         ];
 
         return view('pages.admin.report', compact('students', 'faculties', 'intakes', 'statistics'));
@@ -133,14 +144,66 @@ class ReportController extends Controller
         return view('pages.admin.student-detail', compact('student', 'academicProgress', 'kpiProgress'));
     }
 
-    public function export(Request $request)
+    public function export(Request $request, $id)
     {
-        // Implement export logic here
-        // You can export to PDF, Excel, etc.
+        $student = Student::with([
+            'activities',
+            'challenges',
+            'kpiIndexes',
+            'enrolments.course',
+            'user'
+        ])->findOrFail($id);
+
+        // Get academic progress data
+        $academicProgress = $student->enrolments()
+            ->select('sem', 'year', DB::raw('AVG(pointer) as avg_pointer'))
+            ->groupBy('sem', 'year')
+            ->orderBy('year')
+            ->orderBy('sem')
+            ->get();
+
+        // Get KPI progress data
+        $kpiProgress = $student->kpiIndexes()
+            ->select(
+                'sem',
+                'year',
+                'cgpa',
+                DB::raw('(faculty_activity + university_activity + national_activity + international_activity) as total_activities'),
+                DB::raw('(faculty_competition + university_competition + national_competition + international_competition) as total_competitions')
+            )
+            ->orderBy('year')
+            ->orderBy('sem')
+            ->get();
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdfs.student-report', [
+            'student' => $student,
+            'academicProgress' => $academicProgress,
+            'kpiProgress' => $kpiProgress
+        ]);
+
+        $filename = 'student-report-' . $student->matric_no . '.pdf';
+
+        return $pdf->stream($filename);
+    }
+
+    public function exportBatch(Request $request)
+    {
+        $ids = explode(',', $request->ids);
+        $students = Student::with([
+            'activities',
+            'challenges',
+            'kpiIndexes',
+            'enrolments.course',
+            'user'
+        ])->whereIn('id', $ids)->get();
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdfs.student-reports-batch', [
+            'students' => $students
+        ]);
+
+        return $pdf->stream('student-reports-batch.pdf');
     }
 }
-
-
 
 
 

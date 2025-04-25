@@ -27,7 +27,8 @@ class Student extends Model
         'motto',
         'faculty',
         'img',
-        'user_id'
+        'user_id',
+        'admin_id'
     ];
 
     /**
@@ -85,4 +86,15 @@ class Student extends Model
     {
         return $this->hasMany(KpiIndex::class);
     }
+
+    /**
+     * Get the admin that owns the student.
+     */
+    public function admin(): BelongsTo
+    {
+        return $this->belongsTo(Admin::class);
+    }
 }
+
+
+

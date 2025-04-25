@@ -63,32 +63,35 @@ class ActivityController extends Controller
         }
 
         $request->validate([
-            'sem_year' => 'required|string',
-            'name' => 'required|string|max:255',
-            'type' => 'required|string|max:255',
-            'remark' => 'nullable|string|max:500',
-            'uploads' => 'nullable|file|max:2048' // 2MB max
+            'activities' => 'required|array',
+            'activities.*.sem_year' => 'required|string',
+            'activities.*.name' => 'required|string|max:255',
+            'activities.*.type' => 'required|string|max:255',
+            'activities.*.remark' => 'nullable|string|max:500',
+            'activities.*.uploads' => 'nullable|file|max:2048' // 2MB max
         ]);
 
-        list($sem, $year) = explode('/', $request->sem_year);
+        foreach ($request->activities as $activityData) {
+            list($sem, $year) = explode('/', $activityData['sem_year']);
 
-        $data = [
-            'student_id' => $student->id,
-            'sem' => $sem,
-            'year' => $year,
-            'name' => $request->name,
-            'type' => $request->type,
-            'remark' => $request->remark
-        ];
+            $data = [
+                'student_id' => $student->id,
+                'sem' => $sem,
+                'year' => $year,
+                'name' => $activityData['name'],
+                'type' => $activityData['type'],
+                'remark' => $activityData['remark'] ?? null
+            ];
 
-        if ($request->hasFile('uploads')) {
-            $path = $request->file('uploads')->store('activities', 'public');
-            $data['uploads'] = $path;
+            if (isset($activityData['uploads']) && $activityData['uploads']->isValid()) {
+                $path = $activityData['uploads']->store('activities', 'public');
+                $data['uploads'] = $path;
+            }
+
+            Activity::create($data);
         }
 
-        Activity::create($data);
-
-        return redirect()->route('student.activity')->with('success', 'Activity created successfully');
+        return redirect()->route('student.activity')->with('show-notification', 'activity-added');
     }
 
     public function update(Request $request, $id)
@@ -143,6 +146,9 @@ class ActivityController extends Controller
         return response()->json(['success' => true]);
     }
 }
+
+
+
 
 
 

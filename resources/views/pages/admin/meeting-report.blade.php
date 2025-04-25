@@ -1,5 +1,14 @@
 <x-layouts.app :title="__('Meeting Reports')">
     <div class="flex h-full w-full flex-1 flex-col gap-4 rounded-xl">
+        <!-- Back Button -->
+        <div class="flex justify-end">
+            <a href="{{ route('admin.mentor') }}"
+               class="inline-flex items-center px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors">
+                <x-flux::icon name="arrow-left" class="size-5 mr-2" />
+                Back to Mentor
+            </a>
+        </div>
+
         <!-- Batch Export Section -->
         <div x-data="{ isExportVisible: false, selectedMeetings: [] }" class="bg-white dark:bg-zinc-800 rounded-lg shadow-md p-6">
             <div class="flex justify-between items-center mb-4">
@@ -270,31 +279,3 @@
         }
     </script>
 </x-layouts.app>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

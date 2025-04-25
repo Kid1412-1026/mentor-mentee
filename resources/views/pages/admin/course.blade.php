@@ -1,55 +1,176 @@
 
 <x-layouts.app :title="__('Manage Course')">
-    <div class="flex h-full w-full flex-1 flex-col gap-4 rounded-xl"
-         x-data="courseFilter()">
-        <!-- Filter Section -->
-        <div class="bg-white dark:bg-zinc-800 rounded-lg shadow p-4 mb-4">
-            <div class="flex items-center gap-4">
-                <div class="flex-1 flex items-center gap-2">
-                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Section:</label>
-                    <select x-model="section"
-                            class="rounded-md border-gray-300 dark:border-zinc-700 dark:bg-zinc-800">
-                        <option value="">All Sections</option>
-                        <option value="Co-curriculum">Co-curriculum</option>
-                        <option value="Faculty Core">Faculty Core</option>
-                        <option value="Programme Core">Programme Core</option>
-                        <option value="Industrial Training">Industrial Training</option>
-                        <option value="Language">Language</option>
-                        <option value="Elective">Elective</option>
-                        <option value="University Core">University Core</option>
-                    </select>
-                </div>
+    <div x-data="{
+        isAddingCourse: false,
+        searchQuery: '',
+        courseFilter() {
+            return {
+                section: '{{ request('section') }}',
+                faculty: '{{ request('faculty') }}',
+                search: this.searchQuery,
+                isVisible(courseSection, courseFaculty, courseCode, courseName) {
+                    // Search filter
+                    if (this.search) {
+                        const query = this.search.toLowerCase();
+                        const nameMatch = courseName.toLowerCase().includes(query);
+                        const codeMatch = courseCode.toLowerCase().includes(query);
+                        if (!nameMatch && !codeMatch) return false;
+                    }
 
-                <div class="flex-1 flex items-center gap-2">
-                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Faculty:</label>
-                    <select x-model="faculty"
-                            class="rounded-md border-gray-300 dark:border-zinc-700 dark:bg-zinc-800">
-                        <option value="">All Faculties</option>
-                        @foreach($courses->pluck('faculty')->unique() as $faculty)
-                            <option value="{{ $faculty }}">{{ $faculty }}</option>
-                        @endforeach
-                    </select>
-                </div>
+                    // Existing section and faculty filters
+                    if (!this.section && !this.faculty) {
+                        return true;
+                    }
 
-                <!-- Button Container -->
-                <div class="flex items-center gap-2">
-                    <!-- Add Course Button -->
-                    <button onclick="openModal()" class="inline-flex items-center justify-center p-2 bg-indigo-600 dark:bg-indigo-500 text-white rounded-md hover:bg-indigo-700 dark:hover:bg-indigo-600 transition-colors">
-                        <x-flux::icon name="plus" class="size-5" />
-                        <span class="sr-only">Add Course</span>
-                    </button>
+                    if (this.section && this.faculty) {
+                        return courseSection === this.section && courseFaculty === this.faculty;
+                    }
 
-                    <!-- Build Course Structure Button -->
-                    <a href="{{ route('admin.buildcoursestruct') }}" class="inline-flex items-center justify-center p-2 bg-emerald-600 dark:bg-emerald-500 text-white rounded-md hover:bg-emerald-700 dark:hover:bg-emerald-600 transition-colors">
-                        <x-flux::icon name="squares-2x2" class="size-5" />
-                        <span class="sr-only">Build Course Structure</span>
-                    </a>
-                </div>
-            </div>
+                    if (this.section) {
+                        return courseSection === this.section;
+                    }
+
+                    if (this.faculty) {
+                        return courseFaculty === this.faculty;
+                    }
+
+                    return true;
+                }
+            }
+        }
+    }" class="flex h-full w-full flex-1 flex-col gap-4 rounded-xl">
+        <!-- Add Course Button -->
+        <div class="flex justify-end gap-4">
+            <button @click="isAddingCourse = true"
+                    x-show="!isAddingCourse"
+                    class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors">
+                <x-flux::icon name="plus" class="size-5 mr-2" />
+                Add New Course
+            </button>
+            <a href="{{ route('admin.buildcoursestruct') }}"
+               class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors">
+                <x-flux::icon name="squares-2x2" class="size-5 mr-2" />
+                Build Course Structure
+            </a>
         </div>
 
-        <div class="overflow-x-auto bg-white dark:bg-zinc-900 shadow-md dark:shadow-zinc-800/30 rounded-lg">
-            <table class="min-w-full table-auto">
+        <!-- Filter Section -->
+        <div class="bg-white dark:bg-zinc-800 rounded-lg shadow p-4 mb-4">
+            <form method="GET" action="{{ route('admin.course.index') }}" class="flex items-center gap-4">
+                <!-- Search Input -->
+                <div class="flex-1">
+                    <input type="text"
+                           name="search"
+                           value="{{ request('search') }}"
+                           placeholder="Search by name or code..."
+                           class="w-full rounded-md border-gray-300 dark:border-zinc-700 dark:bg-zinc-800 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                </div>
+
+                <!-- Section Filter -->
+                <div class="w-64 flex items-center gap-2">
+                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Section:</label>
+                    <select name="section"
+                            onchange="this.form.submit()"
+                            class="w-full rounded-md border-gray-300 dark:border-zinc-700 dark:bg-zinc-800">
+                        <option value="">All Sections</option>
+                        <option value="Co-curriculum" {{ request('section') == 'Co-curriculum' ? 'selected' : '' }}>Co-curriculum</option>
+                        <option value="Faculty Core" {{ request('section') == 'Faculty Core' ? 'selected' : '' }}>Faculty Core</option>
+                        <option value="Programme Core" {{ request('section') == 'Programme Core' ? 'selected' : '' }}>Programme Core</option>
+                        <option value="Industrial Training" {{ request('section') == 'Industrial Training' ? 'selected' : '' }}>Industrial Training</option>
+                        <option value="Language" {{ request('section') == 'Language' ? 'selected' : '' }}>Language</option>
+                        <option value="Elective" {{ request('section') == 'Elective' ? 'selected' : '' }}>Elective</option>
+                        <option value="University Core" {{ request('section') == 'University Core' ? 'selected' : '' }}>University Core</option>
+                    </select>
+                </div>
+
+                <!-- Faculty Filter -->
+                <div class="w-64 flex items-center gap-2">
+                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Faculty:</label>
+                    <select name="faculty"
+                            onchange="this.form.submit()"
+                            class="w-full rounded-md border-gray-300 dark:border-zinc-700 dark:bg-zinc-800">
+                        <option value="">All Faculties</option>
+                        <option value="Faculty of Computing and Informatics(FKI)" {{ request('faculty') == 'Faculty of Computing and Informatics(FKI)' ? 'selected' : '' }}>Faculty of Computing and Informatics(FKI)</option>
+                        <option value="Knowledge and Language Learning(PPIB)" {{ request('faculty') == 'Knowledge and Language Learning(PPIB)' ? 'selected' : '' }}>Knowledge and Language Learning(PPIB)</option>
+                        <option value="Co-Curricular(PKPP)" {{ request('faculty') == 'Co-Curricular(PKPP)' ? 'selected' : '' }}>Co-Curricular(PKPP)</option>
+                    </select>
+                </div>
+
+                <!-- Add Submit Button -->
+                <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors">
+                    Search
+                </button>
+            </form>
+        </div>
+
+        <!-- Expandable Add Course Form Section -->
+        <div x-show="isAddingCourse"
+             x-transition:enter="transition ease-out duration-200"
+             x-transition:enter-start="opacity-0 transform -translate-y-2"
+             x-transition:enter-end="opacity-100 transform translate-y-0"
+             x-transition:leave="transition ease-in duration-150"
+             x-transition:leave-start="opacity-100 transform translate-y-0"
+             x-transition:leave-end="opacity-0 transform -translate-y-2"
+             class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700 p-6 mb-4">
+            <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Add New Course</h3>
+            <form action="{{ route('admin.course.store') }}" method="POST">
+                @csrf
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Course Code</label>
+                        <input type="text" name="code" required
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white dark:bg-zinc-900">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Course Name</label>
+                        <input type="text" name="name" required
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white dark:bg-zinc-900">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Credit Hour</label>
+                        <input type="number" name="credit_hour" required
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white dark:bg-zinc-900">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Section</label>
+                        <select name="section" required
+                                class="w-full px-3 py-2 border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white dark:bg-zinc-900 dark:text-gray-300">
+                            <option value="" disabled selected>Select a section</option>
+                            <option value="Co-curriculum">Co-curriculum</option>
+                            <option value="Faculty Core">Faculty Core</option>
+                            <option value="Programme Core">Programme Core</option>
+                            <option value="Industrial Training">Industrial Training</option>
+                            <option value="Language">Language</option>
+                            <option value="Elective">Elective</option>
+                            <option value="University Core">University Core</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Faculty</label>
+                        <select name="faculty" required
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white dark:bg-zinc-900 dark:text-gray-300">
+                            <option value="" disabled selected>Select a faculty</option>
+                            <option value="Faculty of Computing and Informatics(FKI)">Faculty of Computing and Informatics(FKI)</option>
+                            <option value="Knowledge and Language Learning(PPIB)">Knowledge and Language Learning(PPIB)</option>
+                            <option value="Co-Curricular(PKPP)">Co-Curricular(PKPP)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mt-4 flex justify-end gap-3">
+                    <button type="button" @click="isAddingCourse = false"
+                            class="px-4 py-2 bg-gray-200 text-gray-800 dark:bg-zinc-700 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-600 transition-colors">
+                        Cancel
+                    </button>
+                    <button type="submit"
+                            class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors">
+                        Add Course
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div class="overflow-x-auto bg-white dark:bg-zinc-800 rounded-lg shadow">
+            <table class="min-w-full divide-y divide-gray-200 dark:divide-zinc-700">
                 <thead class="bg-gray-50 dark:bg-zinc-800">
                     <tr>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Code</th>
@@ -62,8 +183,7 @@
                 </thead>
                 <tbody class="bg-white dark:bg-zinc-900 divide-y divide-gray-200 dark:divide-zinc-700">
                     @forelse ($courses as $course)
-                        <tr x-show="isVisible('{{ $course->section }}', '{{ $course->faculty }}')"
-                            class="hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition-colors">
+                        <tr class="hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition-colors">
                             <td class="px-6 py-4 whitespace-nowrap text-gray-900 dark:text-gray-300">{{ $course->code }}</td>
                             <td class="px-6 py-4 text-gray-900 dark:text-gray-300">{{ $course->name }}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-gray-900 dark:text-gray-300">{{ $course->credit_hour }}</td>
@@ -91,71 +211,11 @@
                     @endforelse
                 </tbody>
             </table>
-
-            <div class="px-6 py-4 border-t border-gray-200 dark:border-zinc-700">
-                {{ $courses->links() }}
-            </div>
         </div>
-    </div>
 
-    <!-- Add Course Modal -->
-    <div id="addCourseModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full">
-        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white dark:bg-zinc-900">
-            <div class="mt-3">
-                <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Add New Course</h3>
-                <form action="{{ route('admin.course.store') }}" method="POST">
-                    @csrf
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Course Code</label>
-                        <input type="text" name="code" required
-                               class="w-full px-3 py-2 border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500">
-                    </div>
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Course Name</label>
-                        <input type="text" name="name" required
-                               class="w-full px-3 py-2 border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500">
-                    </div>
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Credit Hour</label>
-                        <input type="number" name="credit_hour" required
-                               class="w-full px-3 py-2 border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500">
-                    </div>
-                    <div class="mb-4">
-                        <label for="section" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Section</label>
-                        <select id="section" name="section" required
-                                class="w-full px-3 py-2 border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white text-gray-900 dark:bg-zinc-900 dark:text-gray-300 dark:[&>option]:bg-zinc-900">
-                            <option value="" disabled selected>Select a section</option>
-                            <option value="Co-curriculum">Co-curriculum</option>
-                            <option value="Faculty Core">Faculty Core</option>
-                            <option value="Programme Core">Programme Core</option>
-                            <option value="Industrial Training">Industrial Training</option>
-                            <option value="Language">Language</option>
-                            <option value="Elective">Elective</option>
-                            <option value="University Core">University Core</option>
-                        </select>
-                    </div>
-                    <div class="mb-4">
-                        <label for="faculty" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Faculty</label>
-                        <select id="faculty" name="faculty" required
-                                class="w-full px-3 py-2 border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white text-gray-900 dark:bg-zinc-900 dark:text-gray-300 dark:[&>option]:bg-zinc-900">
-                            <option value="" disabled selected>Select a faculty</option>
-                            <option value="Faculty of Computing and Informatics(FKI)">Faculty of Computing and Informatics(FKI)</option>
-                            <option value="Knowledge and Language Learning(PPIB)">Knowledge and Language Learning(PPIB)</option>
-                            <option value="Co-Curricular(PKPP)">Co-Curricular(PKPP)</option>
-                        </select>
-                    </div>
-                    <div class="flex justify-end gap-3">
-                        <button type="button" onclick="closeModal('addCourseModal')"
-                                class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors">
-                            Cancel
-                        </button>
-                        <button type="submit"
-                                class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors">
-                            Add Course
-                        </button>
-                    </div>
-                </form>
-            </div>
+        <!-- Pagination -->
+        <div class="mt-4">
+            {{ $courses->links() }}
         </div>
     </div>
 
@@ -226,14 +286,6 @@
     </form>
 
     <script>
-        function openModal() {
-            document.getElementById('addCourseModal').classList.remove('hidden');
-        }
-
-        function closeModal(modalId) {
-            document.getElementById(modalId).classList.add('hidden');
-        }
-
         function editCourse(id) {
             fetch(`/admin-course/${id}/edit`, {
                 headers: {
@@ -329,6 +381,24 @@
         }
     </script>
 </x-layouts.app>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
