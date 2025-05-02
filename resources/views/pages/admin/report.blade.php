@@ -591,11 +591,12 @@
     </div>
 
     <script>
-        function exportReport(studentId) {
-            window.location.href = `/admin/student/${studentId}/export`;
+        function exportReport(id) {
+            window.location.href = `/admin/student/${id}/export`;
         }
     </script>
 </x-layouts.app>
+
 
 
 

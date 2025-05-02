@@ -40,14 +40,29 @@
 
         <!-- Student-specific fields -->
         @if($role === 'student')
-            <flux:input
-                wire:model="matric_no"
-                :label="__('Matric Number')"
-                type="text"
-                required
-                maxlength="15"
-                :placeholder="__('Enter matric number')"
-            />
+            <div class="space-y-1">  {{-- Added a wrapper with spacing --}}
+                <flux:input
+                    wire:model="matric_no"
+                    :label="__('Matric Number')"
+                    type="text"
+                    required
+                    maxlength="15"
+                    :placeholder="__('Enter matric number')"
+                />
+
+                {{-- Single error message display --}}
+                @if ($errors->has('matric_no'))  {{-- Changed to @if instead of @error --}}
+                    <div class="mt-1 text-sm text-red-600 dark:text-red-400">
+                        @if($errors->first('matric_no') === 'This matric number is already registered. Please login instead.')
+                            <div class="mt-1">
+                                <a href="{{ route('login') }}" class="text-indigo-600 dark:text-indigo-400 hover:underline">
+                                    {{ __('Login instead?') }}
+                                </a>
+                            </div>
+                        @endif
+                    </div>
+                @endif
+            </div>
 
             <flux:select
                 wire:model="programme_id"
@@ -122,6 +137,9 @@
         <flux:link :href="route('login')" wire:navigate>{{ __('Log in') }}</flux:link>
     </div>
 </div>
+
+
+
 
 
 

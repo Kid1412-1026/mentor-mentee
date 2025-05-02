@@ -1,4 +1,15 @@
 <x-layouts.app :title="__('Mentor Mentee')">
+@if (session('alert'))
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                showAlert(
+                    '{{ session('alert.type') }}',
+                    '{{ session('alert.title') }}',
+                    '{{ session('alert.message') }}'
+                );
+            });
+        </script>
+    @endif
     <!-- Load FullCalendar JS first -->
     <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js'></script>
 
@@ -154,9 +165,11 @@
                     <x-flux::icon name="x-mark" class="size-5" />
                 </button>
             </div>
-            <form id="updateStatusForm" @submit.prevent="updateStatus()">
+            <form id="updateStatusForm"
+                  :action="`{{ route('admin.mentor.update-status', '') }}/${selectedEventId}`"
+                  method="POST">
                 @csrf
-                <input type="hidden" id="counselingId" name="counseling_id" x-model="selectedEventId">
+                <input type="hidden" name="counseling_id" x-model="selectedEventId">
                 <div class="space-y-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Current Status:</label>
@@ -174,11 +187,6 @@
                         </select>
                     </div>
                     <div class="flex justify-end gap-3">
-                        <button type="button"
-                                @click="isUpdateSectionOpen = false"
-                                class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors">
-                            Cancel
-                        </button>
                         <button type="submit"
                                 class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors">
                             Update Status
@@ -200,6 +208,11 @@
                        class="inline-flex items-center justify-center px-4 py-2 bg-green-600 dark:bg-green-500 text-white rounded-md hover:bg-green-700 dark:hover:bg-green-600 transition-colors">
                         <x-flux::icon name="clipboard-document-list" class="size-5 mr-2" />
                         View Meeting Report
+                    </a>
+                    <a href="{{ route('admin.assign-mentor') }}"
+                       class="inline-flex items-center justify-center px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-md hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors">
+                        <x-flux::icon name="user-plus" class="size-5 mr-2" />
+                        Assign Mentor
                     </a>
                 </div>
             </div>
@@ -423,28 +436,6 @@
         }
     </style>
 </x-layouts.app>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

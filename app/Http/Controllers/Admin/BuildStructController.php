@@ -31,9 +31,11 @@ class BuildStructController extends Controller
             ->pluck('intake');
 
         // Fetch course structure rules with their related courses
-        $rules = Rule::with(['course' => function($query) {
-            $query->select('id', 'code', 'name', 'credit_hour', 'section', 'faculty');
-        }])->get();
+        $rules = Rule::with([
+            'course' => function ($query) {
+                $query->select('id', 'code', 'name', 'credit_hour', 'section', 'faculty');
+            }
+        ])->get();
 
         return view('pages.admin.buildcoursestruct', compact('programmes', 'intakes', 'rules', 'courses'));
     }
@@ -45,12 +47,14 @@ class BuildStructController extends Controller
             'intake' => 'required'
         ]);
 
-        $rules = Rule::with(['course' => function($query) {
-            $query->select('id', 'code', 'name', 'credit_hour', 'section', 'faculty');
-        }])
-        ->where('programme_id', $request->programme_id)
-        ->where('intake', $request->intake)
-        ->get();
+        $rules = Rule::with([
+            'course' => function ($query) {
+                $query->select('id', 'code', 'name', 'credit_hour', 'section', 'faculty');
+            }
+        ])
+            ->where('programme_id', $request->programme_id)
+            ->where('intake', $request->intake)
+            ->get();
 
         return response()->json($rules);
     }
@@ -93,36 +97,49 @@ class BuildStructController extends Controller
             $message .= " $errorCount courses were skipped as they already exist in the structure.";
         }
 
-        return redirect()->back()->with('success', $message);
+        return redirect()->back()->with([
+            'alert' => [
+                'type' => 'success',
+                'title' => 'Success!',
+                'message' => 'Courses added successfully!'
+            ]
+        ]);
     }
 
-    public function update(Request $request, $id)
-    {
-        $request->validate([
-            'programme_id' => 'required|exists:programmes,id',
-            'course_id' => 'required|exists:courses,id',
-            'intake' => 'required'
-        ]);
-
-        $rule = Rule::findOrFail($id);
-
-        $rule->update([
-            'programme_id' => $request->programme_id,
-            'course_id' => $request->course_id,
-            'intake' => $request->intake
-        ]);
-
-        return redirect()->back()
-            ->with('success', 'Course structure updated successfully');
-    }
 
     public function destroy($id)
     {
-        $rule = Rule::findOrFail($id);
-        $rule->delete();
+        $rule = DB::table('rules')->where('id', $id)->first();
 
-        return redirect()->back()
-            ->with('success', 'Course removed from structure successfully');
+        if (!$rule) {
+            return redirect()->route('admin.buildcoursestruct')->with([
+                'alert' => [
+                    'type' => 'error',
+                    'title' => 'Not Found!',
+                    'message' => 'Course not found.'
+                ]
+            ]);
+        }
+
+        try {
+            DB::table('rules')->where('id', $id)->delete();
+
+            return redirect()->route('admin.buildcoursestruct')->with([
+                'alert' => [
+                    'type' => 'success',
+                    'title' => 'Deleted!',
+                    'message' => 'Course has been deleted successfully.'
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return redirect()->route('admin.buildcoursestruct')->with([
+                'alert' => [
+                    'type' => 'error',
+                    'title' => 'Error!',
+                    'message' => 'Failed to delete the course.'
+                ]
+            ]);
+        }
     }
 
     public function exportBatch(Request $request)
@@ -132,9 +149,11 @@ class BuildStructController extends Controller
         $courseStructures = [];
         foreach ($intakes as $intake) {
             $rules = Rule::where('intake', $intake)
-                ->with(['course' => function($query) {
-                    $query->select('id', 'code', 'name', 'credit_hour', 'section', 'faculty');
-                }])
+                ->with([
+                    'course' => function ($query) {
+                        $query->select('id', 'code', 'name', 'credit_hour', 'section', 'faculty');
+                    }
+                ])
                 ->get()
                 ->groupBy('course.section');
 
@@ -159,4 +178,5 @@ class BuildStructController extends Controller
         return $pdf->stream('course-structure-report.pdf');
     }
 }
+
 

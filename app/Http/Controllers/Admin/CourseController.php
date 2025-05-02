@@ -33,21 +33,28 @@ class CourseController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'programme_id' => 'required|exists:programmes,id',
-            'intake' => 'required|string',
-            'course_ids' => 'required|array',
-            'course_ids.*' => 'exists:courses,id'
+            'code' => 'required|string|unique:courses,code',
+            'name' => 'required|string|max:255',
+            'credit_hour' => 'required|integer|min:0',
+            'section' => 'required|in:Faculty Core,Programme Core,Elective,University Core,Co-curriculum,Language,Industrial Training',
+            'faculty' => 'required|string|max:255',
         ]);
 
-        foreach ($request->course_ids as $courseId) {
-            Rule::create([
-                'programme_id' => $request->programme_id,
-                'course_id' => $courseId,
-                'intake' => $request->intake
-            ]);
-        }
+        Course::create([
+            'code' => $request->code,
+            'name' => $request->name,
+            'credit_hour' => $request->credit_hour,
+            'section' => $request->section,
+            'faculty' => $request->faculty,
+        ]);
 
-        return response()->json(['success' => true]);
+        return redirect()->route('admin.course.index')->with([
+            'alert' => [
+                'type' => 'success',
+                'title' => 'Success!',
+                'message' => 'Course added successfully!'
+            ]
+        ]);
     }
 
     public function update(Request $request, $id)
@@ -71,14 +78,48 @@ class CourseController extends Controller
 
         Course::where('id', $id)->update($data);
 
-        return redirect()->route('admin.course.index')->with('success', 'Course updated successfully');
+        return redirect()->route('admin.course.index')->with([
+            'alert' => [
+                'type' => 'success',
+                'title' => 'Success!',
+                'message' => 'Course updated successfully!'
+            ]
+        ]);
     }
-
     public function destroy($id)
     {
-        Course::where('id', $id)->delete();
+        $course = Course::find($id);
 
-        return response()->json(['success' => true]);
+        if (!$course) {
+            return redirect()->route('admin.course.index')->with([
+                'alert' => [
+                    'type' => 'error',
+                    'title' => 'Not Found!',
+                    'message' => 'Course entry not found.'
+                ]
+            ]);
+        }
+
+        try {
+
+            $course->delete();
+
+            return redirect()->route('admin.course.index')->with([
+                'alert' => [
+                    'type' => 'success',
+                    'title' => 'Deleted!',
+                    'message' => 'Course entry has been deleted successfully.'
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return redirect()->route('admin.course.index')->with([
+                'alert' => [
+                    'type' => 'error',
+                    'title' => 'Error!',
+                    'message' => 'Failed to delete the course entry.'
+                ]
+            ]);
+        }
     }
 
     public function admincourse()
@@ -87,9 +128,9 @@ class CourseController extends Controller
 
         // Apply search filter (debounced)
         if ($search = request('search')) {
-            $query->where(function($q) use ($search) {
+            $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('code', 'like', "%{$search}%");
+                    ->orWhere('code', 'like', "%{$search}%");
             });
         }
 
@@ -104,12 +145,13 @@ class CourseController extends Controller
         }
 
         $courses = $query->orderBy('created_at', 'desc')
-                        ->paginate(10)
-                        ->withQueryString();
+            ->paginate(10)
+            ->withQueryString();
 
         return view('pages.admin.course', compact('courses'));
     }
 }
+
 
 
 

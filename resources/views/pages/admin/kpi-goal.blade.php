@@ -1,5 +1,16 @@
 <x-layouts.app :title="__('Manage KPI Goals')">
     <div class="flex h-full w-full flex-1 flex-col gap-4 rounded-xl">
+    @if (session('alert'))
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                showAlert(
+                    '{{ session('alert.type') }}',
+                    '{{ session('alert.title') }}',
+                    '{{ session('alert.message') }}'
+                );
+            });
+        </script>
+    @endif
         <!-- Chart container -->
         <div class="overflow-x-auto bg-white dark:bg-zinc-900 shadow-md dark:shadow-zinc-800/30 rounded-lg p-6">
             <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">KPI Goals Overview</h2>
@@ -55,7 +66,7 @@
                         <!-- Expandable Edit Form -->
                         <tr x-show="openGoal === {{ $goal->id }}" x-collapse>
                             <td colspan="6" class="px-6 py-4">
-                                <form action="/admin-kpi-goal/{{ $goal->id }}" method="POST" class="space-y-4">
+                                <form action="{{ route('admin.kpi-goal.update', ['id' => $goal->id]) }}" method="POST" class="space-y-4">
                                     @csrf
                                     @method('PUT')
 
@@ -295,6 +306,7 @@
     </script>
     @endpush
 </x-layouts.app>
+
 
 
 

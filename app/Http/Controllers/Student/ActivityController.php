@@ -23,7 +23,7 @@ class ActivityController extends Controller
         $activities = Activity::where('student_id', $student->id)
             ->orderBy('created_at', 'desc')
             ->paginate(10)
-            ->through(function($activity) {
+            ->through(function ($activity) {
                 $activity->created_at = Carbon::parse($activity->created_at);
                 $activity->updated_at = Carbon::parse($activity->updated_at);
                 return $activity;
@@ -91,7 +91,13 @@ class ActivityController extends Controller
             Activity::create($data);
         }
 
-        return redirect()->route('student.activity')->with('show-notification', 'activity-added');
+        return redirect()->route('student.activity')->with([
+            'alert' => [
+                'type' => 'success',
+                'title' => 'Success!',
+                'message' => 'Activities added successfully!'
+            ]
+        ]);
     }
 
     public function update(Request $request, $id)
@@ -127,8 +133,16 @@ class ActivityController extends Controller
             'remark' => $request->remark,
         ]);
 
-        return redirect()->route('student.activity')->with('success', 'Activity updated successfully');
+        return redirect()->route('student.activity')->with([
+            'alert' => [
+                'type' => 'success',
+                'title' => 'Success!',
+                'message' => 'Activities updated successfully!'
+            ]
+        ]);
     }
+
+    // Inside your controller
 
     public function destroy($id)
     {
@@ -137,15 +151,32 @@ class ActivityController extends Controller
             ->where('student_id', $student->id)
             ->firstOrFail();
 
-        if ($activity->uploads) {
-            Storage::disk('public')->delete($activity->uploads);
+        try {
+            $activity->delete();
+
+            // Flash a success notification
+            return redirect()->route('student.activity')->with([
+                'alert' => [
+                    'type' => 'success',
+                    'title' => 'Deleted!',
+                    'message' => 'Activity has been deleted successfully.'
+                ]
+            ]);
+        } catch (\Exception $e) {
+            // Flash an error notification
+            return redirect()->route('student.activity')->with([
+                'alert' => [
+                    'type' => 'error',
+                    'title' => 'Error!',
+                    'message' => 'Failed to delete the activity.'
+                ]
+            ]);
         }
-
-        $activity->delete();
-
-        return response()->json(['success' => true]);
     }
+
 }
+
+
 
 
 

@@ -2,8 +2,14 @@
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="dark">
     <head>
         @include('partials.head')
+        <!-- Add Chart.js -->
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <!-- Add SweetAlert2 -->
+        <link href="https://cdn.jsdelivr.net/npm/@sweetalert2/theme-dark@4/dark.css" rel="stylesheet">
+        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+        <meta name="csrf-token" content="{{ csrf_token() }}">
         @include('components.notifications-script')
+        @vite('resources/js/alerts.js')
     </head>
     <body class="min-h-screen bg-white dark:bg-zinc-800">
         <flux:sidebar sticky stashable class="border-r border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900">
@@ -155,18 +161,3 @@
         @stack('scripts')
     </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

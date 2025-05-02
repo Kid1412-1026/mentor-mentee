@@ -1,4 +1,15 @@
-<x-layouts.app :title="__('Calendar')">
+<x-layouts.app :title="__('Mentor Sessions')">
+@if (session('alert'))
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                showAlert(
+                    '{{ session('alert.type') }}',
+                    '{{ session('alert.title') }}',
+                    '{{ session('alert.message') }}'
+                );
+            });
+        </script>
+    @endif
     <!-- Include FullCalendar -->
     <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js'></script>
 
@@ -99,7 +110,7 @@
 
                     return {
                         html: `
-                            <div class="fc-content p-1" style="min-height: 80px;">
+                            <div class="fc-content p-1 cursor-pointer" style="min-height: 80px;" onclick="openSessionModal(${arg.event.id}, '${arg.event.title}')">
                                 <div class="fc-title font-semibold mb-1" style="color: ${textColor};">
                                     ${arg.event.title}
                                 </div>
@@ -127,46 +138,9 @@
                 },
 
                 async handleSubmit(event) {
-                    event.preventDefault();
-                    const form = event.target;
-                    const formData = new FormData(form);
-                    const csrfToken = document.querySelector('input[name="_token"]').value;
-
-                    try {
-                        const response = await fetch(form.action, {
-                            method: 'POST',
-                            body: formData,
-                            headers: {
-                                'X-Requested-With': 'XMLHttpRequest',
-                                'X-CSRF-TOKEN': csrfToken
-                            }
-                        });
-
-                        const data = await response.json();
-
-                        if (!response.ok) {
-                            alert(data.error + (data.debug ? '\n' + data.debug : ''));
-                            return;
-                        }
-
-                        // Show success message
-                        alert('Counseling session scheduled successfully');
-
-                        // Close the form and refresh calendar
-                        this.closeForm();
-                        this.calendar.refetchEvents();
-
-                        // Perform the redirect
-                        if (data.redirect) {
-                            window.location.href = data.redirect;
-                        } else {
-                            window.location.reload(); // Fallback if no redirect URL provided
-                        }
-
-                    } catch (error) {
-                        console.error('Error:', error);
-                        alert('An error occurred while scheduling the meeting. Please try again.');
-                    }
+                    // Remove the preventDefault and AJAX submission
+                    // Let the form submit naturally
+                    // The form already has the action and method attributes set
                 },
 
                 initDateTimeHandlers() {
@@ -244,7 +218,6 @@
 
                 <form id="addEventForm"
                       x-ref="addEventForm"
-                      @submit.prevent="handleSubmit"
                       action="{{ route('student.mentor.store') }}"
                       method="POST"
                       class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -500,7 +473,160 @@
             background: inherit;
         }
     </style>
+
+    <!-- Session Modal -->
+    <div id="sessionModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center h-full w-full">
+            <div class="bg-white dark:bg-zinc-900 rounded-lg shadow-xl max-w-md w-full mx-4">
+                <div class="p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 id="modalTitle" class="text-lg font-medium text-gray-900 dark:text-gray-100">Session Details</h3>
+                        <button onclick="closeSessionModal()" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                            <x-flux::icon name="x-mark" class="size-5" />
+                        </button>
+                    </div>
+
+                    <div id="modalContent" class="mt-4 space-y-3 text-gray-700 dark:text-gray-300">
+                        <p>Loading session details...</p>
+                    </div>
+
+                    <div class="mt-6 flex justify-end space-x-3">
+                        <button onclick="closeSessionModal()" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors">
+                            Close
+                        </button>
+                        <button onclick="deleteSession()" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors">
+                            Delete Session
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden delete form -->
+    <form id="deleteSessionForm" class="hidden" method="POST">
+        @csrf
+        @method('DELETE')
+    </form>
+
+    <script>
+        let currentSessionId = null;
+
+        function openSessionModal(id, title) {
+            currentSessionId = id;
+
+            // Set the title
+            const modalTitleElement = document.getElementById('modalTitle');
+            if (modalTitleElement) {
+                modalTitleElement.textContent = title || 'Session Details';
+            }
+
+            // Set loading content
+            const modalContentElement = document.getElementById('modalContent');
+            if (modalContentElement) {
+                modalContentElement.innerHTML = `
+                    <div class="text-center py-4">
+                        <p>Loading details for session #${id}...</p>
+                    </div>
+                `;
+            }
+
+            // Show the modal
+            const modalElement = document.getElementById('sessionModal');
+            if (modalElement) {
+                modalElement.classList.remove('hidden');
+            }
+
+            // Fetch the counseling details
+            fetch(`/student/mentor/details/${id}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Format dates for display
+                    const startTime = new Date(data.start_time).toLocaleString();
+                    const endTime = new Date(data.end_time).toLocaleString();
+
+                    // Update modal content with fetched data
+                    if (modalContentElement) {
+                        modalContentElement.innerHTML = `
+                            <div class="space-y-3">
+                                <div><strong>Description:</strong> ${data.description || 'No description provided'}</div>
+                                <div><strong>Start Time:</strong> ${startTime}</div>
+                                <div><strong>End Time:</strong> ${endTime}</div>
+                                <div><strong>Duration:</strong> ${data.duration} minutes</div>
+                                <div><strong>Venue:</strong> ${data.venue || 'Not specified'}</div>
+                                <div><strong>Status:</strong> ${data.status}</div>
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    if (modalContentElement) {
+                        modalContentElement.innerHTML = `
+                            <div class="text-center py-4 text-red-600">
+                                <p>Error loading session details. Please try again.</p>
+                            </div>
+                        `;
+                    }
+                });
+        }
+
+        function closeSessionModal() {
+            const modalElement = document.getElementById('sessionModal');
+            if (modalElement) {
+                modalElement.classList.add('hidden');
+            }
+        }
+
+        function deleteSession() {
+            if (!currentSessionId) return;
+
+            const formId = 'deleteSessionForm';
+            const form = document.getElementById(formId);
+            form.action = `/student/mentor/${currentSessionId}`;
+
+            // Call the general confirmDelete function
+            window.confirmDelete(formId);
+            closeSessionModal();
+        }
+
+        // Close modal when clicking outside
+        document.addEventListener('click', function(event) {
+            if (event.target.id === 'sessionModal') {
+                closeSessionModal();
+            }
+        });
+
+        // Make sure the modal is hidden initially
+        document.addEventListener('DOMContentLoaded', function() {
+            const modalElement = document.getElementById('sessionModal');
+            if (modalElement) {
+                modalElement.classList.add('hidden');
+            }
+        });
+    </script>
 </x-layouts.app>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

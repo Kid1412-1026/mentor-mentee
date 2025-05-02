@@ -65,7 +65,13 @@ class KPIGoalController extends Controller
         $kpiGoal->update($request->all());
 
         return redirect()->route('admin.kpigoal')
-            ->with('success', 'KPI Goal updated successfully');
+            ->with([
+                'alert' => [
+                    'type' => 'success',
+                    'title' => 'Success!',
+                    'message' => 'Goals updated successfully!'
+                ]
+            ]);
     }
 }
 

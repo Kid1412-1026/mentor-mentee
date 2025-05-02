@@ -298,7 +298,21 @@
                     <td>{{ $activity->sem }}</td>
                     <td>{{ $activity->year }}</td>
                     <td>{{ $activity->remark }}</td>
-                    <td>{{ $activity->uploads }}</td>
+                    <td>
+                        @if($activity->uploads)
+                            @php
+                                $fileExtension = pathinfo($activity->uploads, PATHINFO_EXTENSION);
+                                $fullPath = public_path('storage/' . $activity->uploads);
+                            @endphp
+                            @if(in_array(strtolower($fileExtension), ['jpg', 'jpeg', 'png', 'gif', 'webp']))
+                                <img src="{{ $fullPath }}" alt="Activity Upload" style="width: 50px; height: 50px; object-fit: cover;">
+                            @else
+                                {{ $activity->uploads }}
+                            @endif
+                        @else
+                            -
+                        @endif
+                    </td>
                 </tr>
                 @endforeach
             </tbody>
@@ -372,6 +386,8 @@
     </div>
 </body>
 </html>
+
+
 
 
 

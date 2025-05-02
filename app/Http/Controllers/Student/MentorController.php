@@ -7,7 +7,6 @@ use App\Models\Counseling;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
-use Illuminate\Validation\Rule;
 
 class MentorController extends Controller
 {
@@ -45,112 +44,85 @@ class MentorController extends Controller
 
     public function store(Request $request)
     {
-        try {
-            // Get current time in Malaysia timezone
-            $now = now()->setTimezone('Asia/Kuala_Lumpur')->startOfMinute();
+        $student = Auth::user()->student;
 
-            // Parse the input times and set them to Malaysia timezone
-            $startTime = Carbon::parse($request->start_time)->setTimezone('Asia/Kuala_Lumpur')->startOfMinute();
-            $endTime = Carbon::parse($request->end_time)->setTimezone('Asia/Kuala_Lumpur')->startOfMinute();
+        if (!$student) {
+            return redirect()->route('login')->with('error', 'Student profile not found.');
+        }
 
-            // Debug logging
-            \Log::info('Time comparison:', [
-                'now' => $now->toDateTimeString(),
-                'start_time' => $startTime->toDateTimeString(),
-                'end_time' => $endTime->toDateTimeString(),
-                'is_start_after_now' => $startTime->gte($now)
-            ]);
+        $now = now()->setTimezone('Asia/Kuala_Lumpur')->startOfMinute();
 
-            $validated = $request->validate([
-                'start_time' => ['required', 'date', function ($attribute, $value, $fail) use ($now, $startTime) {
-                    if ($startTime->lt($now)) {
-                        $fail("The start time ({$startTime->toDateTimeString()}) must be after or equal to current time ({$now->toDateTimeString()}).");
+        $request->validate([
+            'start_time' => [
+                'required',
+                'date',
+                function ($attribute, $value, $fail) use ($now) {
+                    $start = Carbon::parse($value)->setTimezone('Asia/Kuala_Lumpur')->startOfMinute();
+                    if ($start->lt($now)) {
+                        $fail("The start time must be after or equal to the current time.");
                     }
-                }],
-                'end_time' => ['required', 'date', function ($attribute, $value, $fail) use ($startTime, $endTime) {
-                    if ($endTime->lte($startTime)) {
+                }
+            ],
+            'end_time' => [
+                'required',
+                'date',
+                function ($attribute, $value, $fail) use ($request) {
+                    $start = Carbon::parse($request->start_time)->setTimezone('Asia/Kuala_Lumpur')->startOfMinute();
+                    $end = Carbon::parse($value)->setTimezone('Asia/Kuala_Lumpur')->startOfMinute();
+                    if ($end->lte($start)) {
                         $fail('The end time must be after the start time.');
                     }
-                }],
-                'duration' => 'required|integer|min:1',
-                'venue' => 'required|string|max:255',
-                'description' => 'nullable|string|max:255',
+                }
+            ],
+            'duration' => 'required|integer|min:1',
+            'venue' => 'required|string|max:255',
+            'description' => 'nullable|string|max:255',
+        ]);
+
+        $startTime = Carbon::parse($request->start_time)->setTimezone('Asia/Kuala_Lumpur')->startOfMinute();
+        $endTime = Carbon::parse($request->end_time)->setTimezone('Asia/Kuala_Lumpur')->startOfMinute();
+
+        // Check for overlapping sessions
+        $conflict = Counseling::where(function ($query) use ($startTime, $endTime) {
+            $query->where('student_id', Auth::id())
+                ->orWhere('admin_id', Auth::user()->student->admin_id);
+        })->where(function ($query) use ($startTime, $endTime) {
+            $query->whereBetween('start_time', [$startTime, $endTime])
+                ->orWhereBetween('end_time', [$startTime, $endTime])
+                ->orWhere(function ($q) use ($startTime, $endTime) {
+                    $q->where('start_time', '<=', $startTime)
+                        ->where('end_time', '>=', $endTime);
+                });
+        })->first();
+
+        if ($conflict) {
+            return back()->withInput()->with([
+                'alert' => [
+                    'type' => 'error',
+                    'title' => 'Scheduling Conflict',
+                    'message' => 'The chosen time is not available.'
+                ]
             ]);
-
-            // Get the authenticated student's mentor (admin)
-            $student = Auth::user()->student;
-            if (!$student || !$student->admin_id) {
-                return response()->json([
-                    'error' => 'No mentor assigned. Please contact your administrator.'
-                ], 422);
-            }
-
-            // Check for existing counseling sessions that overlap
-            $existingSession = Counseling::where(function($query) use ($validated, $student) {
-                $query->where('student_id', Auth::id())
-                    ->where(function($q) use ($validated) {
-                        $q->whereBetween('start_time', [$validated['start_time'], $validated['end_time']])
-                            ->orWhereBetween('end_time', [$validated['start_time'], $validated['end_time']])
-                            ->orWhere(function($q) use ($validated) {
-                                $q->where('start_time', '<=', $validated['start_time'])
-                                    ->where('end_time', '>=', $validated['end_time']);
-                            });
-                    });
-            })->orWhere(function($query) use ($validated, $student) {
-                $query->where('admin_id', $student->admin_id)
-                    ->where(function($q) use ($validated) {
-                        $q->whereBetween('start_time', [$validated['start_time'], $validated['end_time']])
-                            ->orWhereBetween('end_time', [$validated['start_time'], $validated['end_time']])
-                            ->orWhere(function($q) use ($validated) {
-                                $q->where('start_time', '<=', $validated['start_time'])
-                                    ->where('end_time', '>=', $validated['end_time']);
-                            });
-                    });
-            })->first();
-
-            if ($existingSession) {
-                $message = $existingSession->student_id == Auth::id()
-                    ? 'You already have a counseling session scheduled during this time'
-                    : 'Your mentor is not available during this time slot';
-
-                return response()->json([
-                    'error' => $message
-                ], 422);
-            }
-
-            // Create the counseling session with explicit data
-            $counselingData = [
-                'student_id' => Auth::user()->student->id,
-                'admin_id' => $student->admin_id,
-                'start_time' => $validated['start_time'],
-                'end_time' => $validated['end_time'],
-                'duration' => $validated['duration'],
-                'venue' => $validated['venue'],
-                'description' => $validated['description'] ?? null,
-                'status' => 'pending'
-            ];
-
-            $counseling = Counseling::create($counselingData);
-
-            if (!$counseling) {
-                throw new \Exception('Failed to create counseling session');
-            }
-
-            // Make sure we're using the correct route name and it exists
-            return response()->json([
-                'success' => true,
-                'message' => 'Counseling session scheduled successfully',
-                'redirect' => route('student.mentor')
-            ], 201);
-
-        } catch (\Exception $e) {
-            \Log::error('Counseling session creation failed: ' . $e->getMessage());
-            \Log::error($e->getTraceAsString());
-            return response()->json([
-                'error' => 'Failed to schedule counseling session',
-                'debug' => $e->getMessage()
-            ], 500);
         }
+
+        Counseling::create([
+            'student_id' => $student->id,
+            'admin_id' => $student->admin_id,
+            'start_time' => $startTime,
+            'end_time' => $endTime,
+            'duration' => $request->duration,
+            'venue' => $request->venue,
+            'description' => $request->description,
+            'status' => 'pending'
+        ]);
+
+        return redirect()->route('student.mentor')->with([
+            'alert' => [
+                'type' => 'success',
+                'title' => 'Success!',
+                'message' => 'Counseling session scheduled successfully.'
+            ]
+        ]);
     }
 
     private function getStatusColor($status)
@@ -163,7 +135,68 @@ class MentorController extends Controller
             default => '#6B7280'      // Gray
         };
     }
+
+    public function getDetails($id)
+    {
+        try {
+            $counseling = Counseling::where('id', $id)
+                ->where('student_id', Auth::user()->student->id)
+                ->firstOrFail();
+
+            return response()->json($counseling);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Failed to fetch counseling details'], 404);
+        }
+    }
+
+    public function destroy($id)
+    {
+        $student = Auth::user()->student;
+
+        try {
+            // Find the counseling session and ensure it belongs to the current student
+            $counseling = Counseling::where('id', $id)
+                ->where('student_id', $student->id)
+                ->firstOrFail();
+
+            // Only allow deletion of pending sessions
+            if ($counseling->status !== 'pending') {
+                return redirect()->route('student.mentor')->with([
+                    'alert' => [
+                        'type' => 'error',
+                        'title' => 'Action Denied',
+                        'message' => 'You can only delete pending counseling sessions.'
+                    ]
+                ]);
+            }
+
+            // Delete the counseling session
+            $counseling->delete();
+
+            return redirect()->route('student.mentor')->with([
+                'alert' => [
+                    'type' => 'success',
+                    'title' => 'Deleted!',
+                    'message' => 'Counseling session has been deleted successfully.'
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return redirect()->route('student.mentor')->with([
+                'alert' => [
+                    'type' => 'error',
+                    'title' => 'Error!',
+                    'message' => 'Failed to delete the counseling session.'
+                ]
+            ]);
+        }
+    }
 }
+
+
+
+
+
+
 
 
 

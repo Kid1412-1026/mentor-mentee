@@ -96,15 +96,24 @@ class CourseController extends Controller
 
             DB::commit();
 
-            return redirect()->route('student.course')
-                ->with('success', 'Successfully enrolled in the course.');
+            return redirect()->route('student.course')->with([
+                'alert' => [
+                    'type' => 'success',
+                    'title' => 'Success!',
+                    'message' => 'Course enrolled successfully!'
+                ]
+            ]);
 
         } catch (\Exception $e) {
             DB::rollBack();
-            \Log::error('Enrollment Error: ' . $e->getMessage());
 
-            return redirect()->route('student.course')
-                ->with('error', 'Failed to enroll in the course. Please try again.');
+            return redirect()->route('student.course')->with([
+                'alert' => [
+                    'type' => 'error',
+                    'title' => 'Error!',
+                    'message' => 'Failed to update course enrollment. Please try again.'
+                ]
+            ]);
         }
     }
 
@@ -150,15 +159,24 @@ class CourseController extends Controller
 
             DB::commit();
 
-            return redirect()->route('student.course')
-                ->with('success', 'Course enrollment updated successfully.');
+            return redirect()->route('student.course')->with([
+                'alert' => [
+                    'type' => 'success',
+                    'title' => 'Success!',
+                    'message' => 'Course enrollment updated successfully!'
+                ]
+            ]);
 
         } catch (\Exception $e) {
             DB::rollBack();
-            \Log::error('Enrollment Update Error: ' . $e->getMessage());
 
-            return redirect()->route('student.course')
-                ->with('error', 'Failed to update enrollment. Please try again.');
+            return redirect()->route('student.course')->with([
+                'alert' => [
+                    'type' => 'error',
+                    'title' => 'Error!',
+                    'message' => 'Failed to update course enrollment. Please try again.'
+                ]
+            ]);
         }
     }
 
@@ -184,7 +202,7 @@ class CourseController extends Controller
         $pdf = Pdf::loadView('pdfs.course-progress', [
             'student' => $student,
             'enrolledCourses' => $enrolledCourses,
-            'remainingCourses' => $allCourses->filter(function($rule) use ($enrolledCourseIds) {
+            'remainingCourses' => $allCourses->filter(function ($rule) use ($enrolledCourseIds) {
                 return !in_array($rule->course->id, $enrolledCourseIds);
             }),
             'allCourses' => $allCourses,

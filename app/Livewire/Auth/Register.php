@@ -48,13 +48,13 @@ class Register extends Component
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
             'password' => ['required', 'string', 'confirmed', Rules\Password::defaults()],
-            'role' => ['required', 'string', 'in:student,admin'], // Ensure role is validated before creating user
+            'role' => ['required', 'string', 'in:student,admin'],
         ];
 
         $roleSpecificRules = [];
         if ($this->role === 'student') {
             $roleSpecificRules = [
-                'matric_no' => ['required', 'string', 'max:15'],
+                'matric_no' => ['required', 'string', 'max:15'], // Removed any unique validation here
                 'programme_id' => ['required', 'exists:programmes,id'],
                 'intake' => ['required', 'integer'],
             ];
@@ -67,46 +67,86 @@ class Register extends Component
 
         $validated = $this->validate(array_merge($baseRules, $roleSpecificRules));
 
-        // Create user with explicitly set role
-        $user = User::create([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'password' => Hash::make($validated['password']),
-            'role' => $this->role, // Use $this->role instead of $validated['role']
-        ]);
+        try {
+            // Check for existing student with the same matric number
+            if ($this->role === 'student') {
+                $existingStudent = Student::where('matric_no', $this->matric_no)->first();
 
-        if ($this->role === 'student') {
-            $programme = Programme::find($validated['programme_id']);
-            if (!$programme) {
-                throw ValidationException::withMessages([
-                    'programme_id' => 'Selected programme not found.',
+                if ($existingStudent && $existingStudent->user_id) {
+                    throw ValidationException::withMessages([
+                        'matric_no' => 'This matric number is already registered. Please login instead.'
+                    ]);
+                }
+
+                if ($existingStudent && !$existingStudent->user_id) {
+                    $user = User::create([
+                        'name' => $validated['name'],
+                        'email' => $validated['email'],
+                        'password' => Hash::make($validated['password']),
+                        'role' => 'student',
+                    ]);
+
+                    $existingStudent->update([
+                        'user_id' => $user->id,
+                        'name' => $validated['name'],
+                        'email' => $validated['email'],
+                        'programme_id' => $validated['programme_id'],
+                        'intake' => $validated['intake'],
+                    ]);
+
+                    event(new Registered($user));
+                    Auth::login($user);
+                    $this->redirect(route('dashboard'));
+                    return;
+                }
+            }
+
+            // Create user
+            $user = User::create([
+                'name' => $validated['name'],
+                'email' => $validated['email'],
+                'password' => Hash::make($validated['password']),
+                'role' => $this->role,
+            ]);
+
+            if ($this->role === 'student') {
+                $programme = Programme::find($validated['programme_id']);
+                if (!$programme) {
+                    throw ValidationException::withMessages([
+                        'programme_id' => 'Selected programme not found.',
+                    ]);
+                }
+
+                Student::create([
+                    'matric_no' => $validated['matric_no'],
+                    'name' => $validated['name'],
+                    'programme_id' => $programme->id,
+                    'program' => $programme->name,
+                    'email' => $validated['email'],
+                    'intake' => $validated['intake'],
+                    'user_id' => $user->id,
+                ]);
+            } elseif ($this->role === 'admin') {
+                Admin::create([
+                    'name' => $validated['name'],
+                    'email' => $validated['email'],
+                    'faculty' => $validated['faculty'],
+                    'pose' => $validated['pose'],
+                    'user_id' => $user->id,
                 ]);
             }
 
-            Student::create([
-                'matric_no' => $validated['matric_no'],
-                'name' => $validated['name'],
-                'programme_id' => $programme->id,
-                'program' => $programme->name,
-                'email' => $validated['email'],
-                'intake' => $validated['intake'],
-                'user_id' => $user->id,
-                // Remove or comment out the admin_id field
-                // It will be assigned later
-            ]);
-        } elseif ($this->role === 'admin') {
-            Admin::create([
-                'name' => $validated['name'],
-                'email' => $validated['email'],
-                'faculty' => $validated['faculty'],
-                'pose' => $validated['pose'],
-                'user_id' => $user->id,
+            event(new Registered($user));
+            Auth::login($user);
+            $this->redirect(route('dashboard'));
+
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (\Exception $e) {
+            throw ValidationException::withMessages([
+                'email' => 'Registration failed. Please try again.',
             ]);
         }
-
-        event(new Registered($user));
-        Auth::login($user);
-        $this->redirect(route('dashboard', absolute: false), navigate: true);
     }
 
     public function render()
@@ -116,6 +156,10 @@ class Register extends Component
         ]);
     }
 }
+
+
+
+
 
 
 

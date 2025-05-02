@@ -50,6 +50,29 @@
                         </div>
                     </div>
 
+                    <!-- Activities -->
+                    <div class="space-y-4">
+                        <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">Competition Target</h3>
+                        <div class="bg-gray-50 dark:bg-zinc-800 p-4 rounded-lg space-y-3">
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-600 dark:text-gray-400">Faculty Level</span>
+                                <span class="font-medium text-gray-900 dark:text-gray-100">{{ $kpiGoal->faculty_competition ?? '-' }}</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-600 dark:text-gray-400">University Level</span>
+                                <span class="font-medium text-gray-900 dark:text-gray-100">{{ $kpiGoal->university_competition ?? '-' }}</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-600 dark:text-gray-400">National Level</span>
+                                <span class="font-medium text-gray-900 dark:text-gray-100">{{ $kpiGoal->national_competition ?? '-' }}</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-600 dark:text-gray-400">International Level</span>
+                                <span class="font-medium text-gray-900 dark:text-gray-100">{{ $kpiGoal->international_competition ?? '-' }}</span>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Other Metrics -->
                     <div class="space-y-4">
                         <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">Other Metrics</h3>
@@ -344,10 +367,10 @@
             const ctx = document.getElementById('cgpaChart');
             if (!ctx) return;
 
-            const cgpaData = @json($kpiIndexes->sortBy('year')->sortBy('sem')
+            const cgpaData = @json($kpiIndexes->sortBy('sem')->sortBy('year')
                 ->map(function($kpi) {
                     return [
-                        'semester' => "Year {$kpi->year}, Sem {$kpi->sem}",
+                        'semester' => "Semester {$kpi->sem}, Year {$kpi->year}",
                         'cgpa' => $kpi->cgpa
                     ];
                 })->values());

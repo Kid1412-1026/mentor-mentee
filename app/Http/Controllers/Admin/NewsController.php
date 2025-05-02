@@ -15,7 +15,7 @@ class NewsController extends Controller
         $announcements = DB::table('announcements')
             ->orderBy('created_at', 'desc')
             ->paginate(10)  // Add pagination with 10 items per page
-            ->through(function($announcement) {
+            ->through(function ($announcement) {
                 $announcement->created_at = Carbon::parse($announcement->created_at);
                 $announcement->updated_at = Carbon::parse($announcement->updated_at);
                 return $announcement;
@@ -64,7 +64,13 @@ class NewsController extends Controller
 
         DB::table('announcements')->insert($data);
 
-        return redirect()->route('admin.news')->with('success', 'Announcement created successfully');
+        return redirect()->route('admin.news')->with([
+            'alert' => [
+                'type' => 'success',
+                'title' => 'Success!',
+                'message' => 'Announcement added successfully!'
+            ]
+        ]);
     }
 
     public function update(Request $request, $id)
@@ -94,23 +100,51 @@ class NewsController extends Controller
 
         DB::table('announcements')->where('id', $id)->update($data);
 
-        return redirect()->route('admin.news')->with('success', 'Announcement updated successfully');
+        return redirect()->route('admin.news')->with([
+            'alert' => [
+                'type' => 'success',
+                'title' => 'Success!',
+                'message' => 'Announcement updated successfully!'
+            ]
+        ]);
     }
 
     public function destroy($id)
     {
         $announcement = DB::table('announcements')->where('id', $id)->first();
 
-        if ($announcement && $announcement->file) {
-            Storage::disk('public')->delete($announcement->file);
+        if (!$announcement) {
+            return redirect()->route('admin.news')->with([
+                'alert' => [
+                    'type' => 'error',
+                    'title' => 'Not Found!',
+                    'message' => 'Announcement not found.'
+                ]
+            ]);
         }
 
-        DB::table('announcements')->where('id', $id)->delete();
+        try {
+            if ($announcement->file) {
+                Storage::disk('public')->delete($announcement->file);
+            }
 
-        return response()->json(['success' => true]);
+            DB::table('announcements')->where('id', $id)->delete();
+
+            return redirect()->route('admin.news')->with([
+                'alert' => [
+                    'type' => 'success',
+                    'title' => 'Deleted!',
+                    'message' => 'Announcement has been deleted successfully.'
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return redirect()->route('admin.news')->with([
+                'alert' => [
+                    'type' => 'error',
+                    'title' => 'Error!',
+                    'message' => 'Failed to delete the announcement.'
+                ]
+            ]);
+        }
     }
 }
-
-
-
-

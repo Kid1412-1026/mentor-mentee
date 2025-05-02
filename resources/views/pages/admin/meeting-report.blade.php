@@ -1,4 +1,15 @@
 <x-layouts.app :title="__('Meeting Reports')">
+@if (session('alert'))
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                showAlert(
+                    '{{ session('alert.type') }}',
+                    '{{ session('alert.title') }}',
+                    '{{ session('alert.message') }}'
+                );
+            });
+        </script>
+    @endif
     <div class="flex h-full w-full flex-1 flex-col gap-4 rounded-xl">
         <!-- Back Button -->
         <div class="flex justify-end">

@@ -14,18 +14,21 @@ class MentorController extends Controller
 {
     public function index()
     {
-        // Get the authenticated user and their admin record
         $user = Auth::user();
         $admin = $user->admin;
 
         if (!$admin) {
+            // Log the issue for debugging
+            \Log::warning('No admin record found for user:', ['user_id' => $user->id]);
+
             return view('pages.admin.mentor', [
                 'students' => Student::paginate(0),
                 'statistics' => [
                     'total_mentees' => 0,
                     'active_mentees' => 0,
                     'recent_activities' => collect()
-                ]
+                ],
+                'error' => 'Admin profile not found. Please contact system administrator.'
             ]);
         }
 
@@ -125,18 +128,140 @@ class MentorController extends Controller
             $counseling->status = $request->status;
             $counseling->save();
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Status updated successfully'
+            return redirect()->back()->with([
+                'alert' => [
+                    'type' => 'success',
+                    'title' => 'Success!',
+                    'message' => 'Status updated successfully.'
+                ]
             ]);
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to update status'
-            ], 500);
+            return redirect()->back()->with([
+                'alert' => [
+                    'type' => 'error',
+                    'title' => 'Error!',
+                    'message' => 'Failed to update status.'
+                ]
+            ]);
+        }
+    }
+
+    public function assignMentor()
+    {
+        // Get the authenticated user and their admin record
+        $user = Auth::user();
+        $admin = $user->admin;
+
+        // Get all admins to be used as mentors
+        $mentors = \App\Models\Admin::with('user')
+            ->select(['id', 'user_id', 'phone', 'faculty', 'pose'])
+            ->get()
+            ->map(function ($admin) {
+                return [
+                    'id' => $admin->id,
+                    'name' => $admin->user->name
+                ];
+            });
+
+        // Get unassigned students
+        $unassignedStudents = Student::whereNull('admin_id')
+            ->with(['user'])
+            ->select([
+                'id',
+                'matric_no',
+                'name',
+                'program',
+                'faculty',
+                'intake',
+                'email',
+                'phone',
+                'img',
+                'user_id',
+                'admin_id'
+            ])
+            ->orderBy('name')
+            ->paginate(10);
+
+        return view('pages.admin.assign-mentor', [
+            'unassignedStudents' => $unassignedStudents,
+            'mentors' => $mentors
+        ]);
+    }
+
+    public function assignMentorToStudent(Student $student)
+    {
+        try {
+            $admin = Auth::user()->admin;
+
+            if (!$admin) {
+                return redirect()->back()->with([
+                    'alert' => [
+                        'type' => 'error',
+                        'title' => 'Unauthorized',
+                        'message' => 'You are not authorized to assign mentees.'
+                    ]
+                ]);
+            }
+
+            $student->admin_id = $admin->id;
+            $student->save();
+
+            return redirect()->back()->with([
+                'alert' => [
+                    'type' => 'success',
+                    'title' => 'Success!',
+                    'message' => 'Student successfully assigned as mentee.'
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return redirect()->back()->with([
+                'alert' => [
+                    'type' => 'error',
+                    'title' => 'Error!',
+                    'message' => 'Failed to assign student as mentee.'
+                ]
+            ]);
+        }
+    }
+
+
+    public function assignMentorBulk(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'student_ids' => 'required|array',
+                'student_ids.*' => 'exists:students,id',
+                'mentor_id' => 'required|exists:admins,id'
+            ]);
+
+            $studentIds = $validated['student_ids'];
+            $mentorId = $validated['mentor_id'];
+
+            // Update all selected students
+            Student::whereIn('id', $studentIds)
+                ->whereNull('admin_id')
+                ->update(['admin_id' => $mentorId]);
+
+            return redirect()->back()->with([
+                'alert' => [
+                    'type' => 'success',
+                    'title' => 'Success!',
+                    'message' => 'Students successfully assigned to mentor.'
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return redirect()->back()->with([
+                'alert' => [
+                    'type' => 'error',
+                    'title' => 'Error!',
+                    'message' => 'Failed to assign students to mentor.'
+                ]
+            ]);
         }
     }
 }
+
+
 
 
 

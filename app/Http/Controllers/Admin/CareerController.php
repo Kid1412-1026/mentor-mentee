@@ -15,7 +15,7 @@ class CareerController extends Controller
         $careers = DB::table('careers')
             ->orderBy('created_at', 'desc')
             ->paginate(10)  // Add pagination with 10 items per page
-            ->through(function($career) {
+            ->through(function ($career) {
                 $career->created_at = Carbon::parse($career->created_at);
                 $career->updated_at = Carbon::parse($career->updated_at);
                 return $career;
@@ -53,6 +53,7 @@ class CareerController extends Controller
         $data = [
             'title' => $request->title,
             'description' => $request->description,
+            'admin_id' => auth()->user()->admin->id,
             'created_at' => now(),
             'updated_at' => now()
         ];
@@ -64,7 +65,13 @@ class CareerController extends Controller
 
         DB::table('careers')->insert($data);
 
-        return redirect()->route('admin.career')->with('success', 'Career created successfully');
+        return redirect()->route('admin.career')->with([
+            'alert' => [
+                'type' => 'success',
+                'title' => 'Success!',
+                'message' => 'Career added successfully!'
+            ]
+        ]);
     }
 
     public function update(Request $request, $id)
@@ -94,23 +101,51 @@ class CareerController extends Controller
 
         DB::table('careers')->where('id', $id)->update($data);
 
-        return redirect()->route('admin.career')->with('success', 'Career updated successfully');
+        return redirect()->route('admin.career')->with([
+            'alert' => [
+                'type' => 'success',
+                'title' => 'Success!',
+                'message' => 'Career updated successfully!'
+            ]
+        ]);
     }
 
     public function destroy($id)
     {
         $career = DB::table('careers')->where('id', $id)->first();
 
-        if ($career && $career->file) {
-            Storage::disk('public')->delete($career->file);
+        if (!$career) {
+            return redirect()->route('admin.career')->with([
+                'alert' => [
+                    'type' => 'error',
+                    'title' => 'Not Found!',
+                    'message' => 'Career entry not found.'
+                ]
+            ]);
         }
 
-        DB::table('careers')->where('id', $id)->delete();
+        try {
+            if ($career->file) {
+                Storage::disk('public')->delete($career->file);
+            }
 
-        return response()->json(['success' => true]);
+            DB::table('careers')->where('id', $id)->delete();
+
+            return redirect()->route('admin.career')->with([
+                'alert' => [
+                    'type' => 'success',
+                    'title' => 'Deleted!',
+                    'message' => 'Career entry has been deleted successfully.'
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return redirect()->route('admin.career')->with([
+                'alert' => [
+                    'type' => 'error',
+                    'title' => 'Error!',
+                    'message' => 'Failed to delete the career entry.'
+                ]
+            ]);
+        }
     }
 }
-
-
-
-

@@ -50,6 +50,12 @@ Route::middleware(['auth', 'student'])->group(function () {
     Route::get('student-mentor', [App\Http\Controllers\Student\MentorController::class, 'index'])->name('student.mentor');
     Route::get('student-mentor/events', [App\Http\Controllers\Student\MentorController::class, 'events'])->name('student.mentor.events');
     Route::post('student.mentor.store', [App\Http\Controllers\Student\MentorController::class, 'store'])->name('student.mentor.store');
+    Route::get('/student/mentor/details/{id}', [App\Http\Controllers\Student\MentorController::class, 'getDetails'])
+        ->middleware(['auth', 'student'])
+        ->name('student.mentor.details');
+    Route::delete('/student/mentor/{id}', [App\Http\Controllers\Student\MentorController::class, 'destroy'])
+        ->middleware(['auth', 'student'])
+        ->name('student.mentor.destroy');
     // Challenge Management Routes
     Route::get('student-challenge', [App\Http\Controllers\Student\ChallengeController::class, 'studchallenge'])->name('student.challenge');
     Route::post('student-challenge', [App\Http\Controllers\Student\ChallengeController::class, 'store'])->name('student.challenge.store');
@@ -62,14 +68,22 @@ Route::middleware(['auth', 'student'])->group(function () {
         ->name('student.courses.export');
 });
 
-Route::middleware(['auth', 'admin'])->group(function () {
+Route::prefix('admin')->middleware(['auth', 'admin'])->group(function () {
     Route::get('admin/dashboard', [App\Http\Controllers\Admin\DashboardController::class, 'index'])->name('admin.dashboard');
     Route::get('admin/profile', \App\Livewire\Admin\Profile::class)->name('admin.profile');
     Route::get('announcements', [App\Http\Controllers\AnnouncementController::class, 'index'])->name('announcements');
 
+    // Add the new assign mentor route
+    Route::get('admin/assign-mentor', [App\Http\Controllers\Admin\MentorController::class, 'assignMentor'])
+        ->name('admin.assign-mentor');
+    Route::post('admin/assign-mentor/{student}', [App\Http\Controllers\Admin\MentorController::class, 'assignMentorToStudent'])
+        ->name('admin.assign-mentor.store');
+    Route::post('/assign-mentor/bulk', [App\Http\Controllers\Admin\MentorController::class, 'assignMentorBulk'])
+        ->name('admin.assign-mentor.bulk');
+
     // Student Management Routes
-    Route::get('admin/student/{student}', [App\Http\Controllers\Admin\DashboardController::class, 'show'])->name('admin.student.show');
-    Route::get('/admin/student/{id}/export', [App\Http\Controllers\Admin\ReportController::class, 'export'])->name('admin.student.export');
+    Route::get('student/{student}', [App\Http\Controllers\Admin\DashboardController::class, 'show'])->name('admin.student.show');
+    Route::get('/student/{id}/export', [App\Http\Controllers\Admin\ReportController::class, 'export'])->name('admin.student.export');
     Route::get('/admin/student/export-batch', [App\Http\Controllers\Admin\ReportController::class, 'exportBatch'])->name('admin.student.export-batch');
 
     // News Management Routes
@@ -107,7 +121,7 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('admin-profileimageupdate', [App\Http\Controllers\Admin\ProfileController::class, 'updateProfileImage'])->name('admin.profileimageupdate');
     Route::get('admin-kpigoal', [App\Http\Controllers\Admin\KPIGoalController::class, 'index'])->name('admin.kpigoal');
     Route::get('admin-kpi-goal/{id}/edit', [App\Http\Controllers\Admin\KPIGoalController::class, 'edit']);
-    Route::put('admin-kpi-goal/{id}', [App\Http\Controllers\Admin\KPIGoalController::class, 'update']);
+    Route::put('admin-kpi-goal/{id}', [App\Http\Controllers\Admin\KPIGoalController::class, 'update'])->name('admin.kpi-goal.update');
     Route::get('admin-meetingreport', [App\Http\Controllers\Admin\MeetingReportController::class, 'index'])
         ->name('admin.meetingreport');
     Route::post('admin-meetings', [App\Http\Controllers\Admin\MeetingReportController::class, 'store'])
@@ -116,15 +130,27 @@ Route::middleware(['auth', 'admin'])->group(function () {
         ->name('admin.meetings.show');
     Route::get('admin-meeting-report', [App\Http\Controllers\Admin\MentorController::class, 'meetingreport'])
         ->name('admin.meetingreport.');
-    Route::get('admin/meeting/{meeting}/export', [App\Http\Controllers\Admin\MeetingReportController::class, 'export'])
+    Route::get('/meeting/{meeting}/export', [App\Http\Controllers\Admin\MeetingReportController::class, 'export'])
         ->name('admin.meeting.export');
-    Route::get('admin/meeting/export-batch', [App\Http\Controllers\Admin\MeetingReportController::class, 'exportBatch'])
+    Route::get('/meeting/export-batch', [App\Http\Controllers\Admin\MeetingReportController::class, 'exportBatch'])
         ->name('admin.meeting.export-batch');
-    Route::get('admin/course-structure/export-batch', [App\Http\Controllers\Admin\BuildStructController::class, 'exportBatch'])
+    Route::get('/course-structure/export-batch', [App\Http\Controllers\Admin\BuildStructController::class, 'exportBatch'])
         ->name('admin.course-structure.export-batch');
 });
 
 require __DIR__.'/auth.php';
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

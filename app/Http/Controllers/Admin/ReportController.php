@@ -17,7 +17,7 @@ class ReportController extends Controller
     public function index()
     {
         // Get the authenticated admin's ID
-        $adminId = auth()->id();
+        $adminId = auth()->user()->admin->id;
 
         $students = Student::with([
             'activities' => function($query) {
@@ -204,6 +204,8 @@ class ReportController extends Controller
         return $pdf->stream('student-reports-batch.pdf');
     }
 }
+
+
 
 
 

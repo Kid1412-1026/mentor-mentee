@@ -21,7 +21,7 @@ class ChallengeController extends Controller
         $challenges = Challenge::where('student_id', $student->id)
             ->orderBy('created_at', 'desc')
             ->paginate(10)
-            ->through(function($challenge) {
+            ->through(function ($challenge) {
                 $challenge->created_at = Carbon::parse($challenge->created_at);
                 $challenge->updated_at = Carbon::parse($challenge->updated_at);
                 return $challenge;
@@ -80,7 +80,13 @@ class ChallengeController extends Controller
             ]);
         }
 
-        return redirect()->route('student.challenge')->with('success', 'Challenges created successfully');
+        return redirect()->route('student.challenge')->with([
+            'alert' => [
+                'type' => 'success',
+                'title' => 'Success!',
+                'message' => 'Challenges added successfully!'
+            ]
+        ]);
     }
 
     public function update(Request $request, $id)
@@ -107,7 +113,14 @@ class ChallengeController extends Controller
             'remark' => $request->remark,
         ]);
 
-        return redirect()->route('student.challenge')->with('success', 'Challenge updated successfully');
+        return redirect()->route('student.challenge')->with([
+            'show-notification' => 'challengeEdited',
+            'alert' => [
+                'type' => 'success',
+                'title' => 'Success!',
+                'message' => 'Challenge updated successfully!'
+            ]
+        ]);
     }
 
     public function destroy($id)
@@ -117,11 +130,31 @@ class ChallengeController extends Controller
             ->where('student_id', $student->id)
             ->firstOrFail();
 
-        $challenge->delete();
+        try {
+            $challenge->delete();
 
-        return response()->json(['success' => true]);
+            return redirect()->route('student.challenge')->with([
+                'show-notification' => 'challengeDeleted',
+                'alert' => [
+                    'type' => 'success',
+                    'title' => 'Deleted!',
+                    'message' => 'Challenge has been deleted successfully.'
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return redirect()->route('student.challenge')->with([
+                'show-notification' => 'challengeDeleteError',
+                'alert' => [
+                    'type' => 'error',
+                    'title' => 'Error!',
+                    'message' => 'Failed to delete the challenge.'
+                ]
+            ]);
+        }
     }
+
 }
+
 
 
 

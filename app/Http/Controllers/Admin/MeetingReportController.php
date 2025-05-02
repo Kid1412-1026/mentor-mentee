@@ -53,7 +53,13 @@ class MeetingReportController extends Controller
         if ($existingMeeting) {
             return redirect()->back()
                 ->withInput()
-                ->with('error', 'A meeting report already exists for this semester, year and batch combination.');
+                ->with([
+                'alert' => [
+                    'type' => 'error',
+                    'title' => 'Duplicate found!',
+                    'message' => 'A meeting report already exists for this semester, year and batch combination.'
+                ]
+            ]);
         }
 
         // Create new meeting record
@@ -72,7 +78,13 @@ class MeetingReportController extends Controller
         ]);
 
         return redirect()->route('admin.meetingreport.index')
-            ->with('success', 'Meeting report added successfully');
+            ->with([
+                'alert' => [
+                    'type' => 'success',
+                    'title' => 'Success!',
+                    'message' => 'Meeting report added successfully!'
+                ]
+            ]);
     }
 
     public function export(Request $request, $id)
